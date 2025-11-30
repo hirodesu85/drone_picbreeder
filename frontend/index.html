@@ -5,11 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drone Picbreeder</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Import maps for Three.js -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+        }
+    }
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>Drone Picbreeder</h1>
         <p>進化計算を用いたドローンショーのアート生成ツール</p>
+
+        <!-- 3x3 Grid -->
+        <div class="grid-container"></div>
     </div>
+
+    <script type="module" src="app.js"></script>
 </body>
 </html>
