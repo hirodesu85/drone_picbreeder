@@ -48,8 +48,8 @@ async function createScene(container, showData) {
 
     for (let i = 0; i < numDrones; i++) {
         const material = new THREE.MeshPhongMaterial({
-            color: Math.random() * 0xffffff,
-            emissive: Math.random() * 0x333333
+            color: 0x9acd32,
+            emissive: 0x2d4a0f
         });
         const drone = new THREE.Mesh(droneGeometry, material);
 
