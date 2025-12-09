@@ -16,6 +16,25 @@ Picbreeder（インタラクティブな進化計算を用いたアート生成�
 ### バックエンド
 - **Python** - メイン言語
 - **FastAPI** - Web APIフレームワーク
+- **NEAT (NeuroEvolution of Augmenting Topologies)** - 進化計算アルゴリズム
+- **CPPN (Compositional Pattern Producing Networks)** - パターン生成ネットワーク
+
+## 進化計算システムの設計
+
+### CPPN仕様
+
+**入力（4次元）**:
+- `x, y, z`: ドローンの相対位置（原点からの座標）
+- `d`: 原点からの距離 (d = √(x² + y² + z²))
+
+**出力（6次元）**:
+- `vx, vy, vz`: ドローンの速度ベクトル
+- `r, g, b`: ドローンの色（RGB）
+
+**その他の設定**:
+- ドローン台数: 5台（固定）
+
+シミュレーション設定の詳細（初期位置、空間制約、積分方法など）は実装時に追加します。
 
 ## ドローンショーデータ形式
 
@@ -65,6 +84,43 @@ drone_picbreeder/
 ├── backend/      # FastAPIベースのバックエンド
 └── README.md
 ```
+
+## 開発環境のセットアップ
+
+### バックエンド
+
+1. backendディレクトリに移動
+   ```bash
+   cd backend
+   ```
+
+2. Pythonの仮想環境を作成
+   ```bash
+   python3 -m venv venv
+   ```
+
+3. 仮想環境を有効化
+   ```bash
+   source venv/bin/activate
+   ```
+
+4. 依存関係をインストール
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. サーバーを起動
+   ```bash
+   python -m uvicorn main:app --reload
+   ```
+
+6. ブラウザでアクセス
+   - API: http://localhost:8000/api/health
+   - Swagger UI: http://localhost:8000/docs
+
+### フロントエンド
+
+静的HTMLファイルなので、`frontend/index.html` をブラウザで直接開くか、Live Serverなどを使用してください。
 
 ## 開発状況
 
