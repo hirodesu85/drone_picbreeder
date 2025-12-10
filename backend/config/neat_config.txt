@@ -1,0 +1,128 @@
+# NEAT Configuration for Drone Picbreeder
+# このファイルはNEAT（進化的アルゴリズム）の動作を制御します
+
+[NEAT]
+# 適応度基準: max = 適応度が最大の個体を優先
+fitness_criterion     = max
+# 適応度閾値: この値に達したら進化を停止（今回は使用しない）
+fitness_threshold     = 1000000.0
+# 適応度による終了: 適応度閾値に達しても進化を継続
+no_fitness_termination = True
+# 集団サイズ: 各世代に何個のゲノム（ネットワーク）を保持するか
+# 10個 = フロントエンドで3x3グリッド+1個表示できる
+pop_size              = 10
+# 絶滅時リセット: 全ての種が絶滅したら集団をリセットするか
+reset_on_extinction   = False
+
+[DefaultGenome]
+# ネットワークパラメータ
+# ドローンの位置情報: x, y, z, d（原点からの距離）
+num_inputs              = 4
+# ドローンの速度と色: vx, vy, vz, r, g, b
+num_outputs             = 6
+# 初期の隠れノード数: 0から開始し、進化で追加される
+num_hidden              = 0
+
+# 活性化関数の設定
+# デフォルトの活性化関数
+activation_default      = sigmoid
+# 活性化関数の突然変異率（20%の確率で別の関数に変わる）
+activation_mutate_rate  = 0.2
+# 使用可能な活性化関数（CPPNに適した合成関数）
+# sigmoid: S字曲線（0-1の範囲）
+# tanh: 双曲線正接（-1～1の範囲）
+# sin: 正弦波（周期的なパターン）
+# gauss: ガウス関数（釣鐘型の形状）
+# relu: 正規化線形ユニット（0以下は0、それ以上は線形）
+activation_options      = sigmoid tanh sin gauss relu
+
+# 集約関数の設定（複数の入力をどう組み合わせるか）
+aggregation_default     = sum
+aggregation_mutate_rate = 0.0
+aggregation_options     = sum
+
+# バイアス（ノードの閾値）の設定
+# 初期値の平均と標準偏差
+bias_init_mean          = 0.0
+bias_init_stdev         = 1.0
+# バイアスの最大・最小値
+bias_max_value          = 30.0
+bias_min_value          = -30.0
+# バイアスの突然変異の大きさ
+bias_mutate_power       = 0.5
+# バイアスの突然変異率（70%）
+bias_mutate_rate        = 0.7
+# バイアスを完全に置き換える確率（10%）
+bias_replace_rate       = 0.1
+
+# ゲノムの類似性判定パラメータ（種分化に使用）
+# 異なる遺伝子の重み
+compatibility_disjoint_coefficient = 1.0
+# 重みの差の重み
+compatibility_weight_coefficient   = 0.5
+
+# 接続（connection）の追加・削除確率
+# 新しい接続を追加する確率（50%）
+conn_add_prob           = 0.5
+# 既存の接続を削除する確率（30%）
+conn_delete_prob        = 0.3
+
+# 接続の有効/無効設定
+# デフォルトで接続は有効
+enabled_default         = True
+# 接続の有効/無効を切り替える突然変異率（5%）
+enabled_mutate_rate     = 0.05
+
+# ネットワークトポロジー設定
+# フィードフォワードネットワーク（再帰的接続なし）
+feed_forward            = True
+# 初期接続: 全ての入力が全ての出力に直接接続
+initial_connection      = full_direct
+
+# ノード（neuron）の追加・削除確率
+# 新しいノードを追加する確率（30%）
+node_add_prob           = 0.3
+# 既存のノードを削除する確率（20%）
+node_delete_prob        = 0.2
+
+# レスポンス（応答）パラメータ
+response_init_mean      = 1.0
+response_init_stdev     = 0.0
+response_max_value      = 30.0
+response_min_value      = -30.0
+response_mutate_power   = 0.0
+response_mutate_rate    = 0.0
+response_replace_rate   = 0.0
+
+# 重み（weight）の設定
+# 初期重みの平均と標準偏差
+weight_init_mean        = 0.0
+weight_init_stdev       = 1.0
+# 重みの最大・最小値
+weight_max_value        = 30.0
+weight_min_value        = -30.0
+# 重みの突然変異の大きさ
+weight_mutate_power     = 0.5
+# 重みの突然変異率（80%）
+weight_mutate_rate      = 0.8
+# 重みを完全に置き換える確率（10%）
+weight_replace_rate     = 0.1
+
+[DefaultSpeciesSet]
+# 種分化の閾値: ゲノム間の距離がこの値以上なら別の種
+# 値が大きいほど、少ない種に分割される
+compatibility_threshold = 3.0
+
+[DefaultStagnation]
+# 種の適応度関数: max = 種内の最大適応度を使用
+species_fitness_func = max
+# 停滞の最大世代数: この世代数改善がなければ種を削除
+max_stagnation       = 15
+# エリート主義: 各種から最良の個体を何個保護するか
+species_elitism      = 2
+
+[DefaultReproduction]
+# エリート主義: 集団全体から最良の個体を何個次世代に残すか
+elitism            = 2
+# 生存閾値: 各種の上位何%を親として選択するか
+survival_threshold = 0.2
