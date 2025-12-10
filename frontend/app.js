@@ -11,7 +11,7 @@ function rgbToHex(r, g, b) {
 
 // JSONデータを読み込む
 async function loadShowData() {
-    const response = await fetch('mock_data/mock.json');
+    const response = await fetch('mock_data/mock2.json');
     const data = await response.json();
     return data;
 }
