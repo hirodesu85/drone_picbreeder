@@ -13,13 +13,13 @@ class DroneState(BaseModel):
     """
     単一のドローンの状態（位置と色）
 
-    フロントエンドは位置のみを期待していますが、
-    将来的な拡張のために色情報も含めています。
+    CPPNが生成した位置と色の情報を含みます。
+    フロントエンドはこれらの値を使用して3Dビジュアライゼーションを行います。
     """
     x: float = Field(..., description="X座標 (メートル)")
     y: float = Field(..., description="Y座標 (メートル)")
     z: float = Field(..., description="Z座標 (メートル)")
-    # 色情報（フロントエンドで使用する場合）
+    # 色情報（CPPNが生成、フロントエンドで表示に使用）
     r: int = Field(default=127, ge=0, le=255, description="赤成分 (0-255)")
     g: int = Field(default=255, ge=0, le=255, description="緑成分 (0-255)")  # デフォルトは蛍光グリーン
     b: int = Field(default=127, ge=0, le=255, description="青成分 (0-255)")
