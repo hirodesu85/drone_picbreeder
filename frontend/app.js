@@ -3,17 +3,37 @@ import * as THREE from 'three';
 // 定数
 const FPS = 30;
 const FRAME_DURATION = 1000 / FPS; // ミリ秒
+const API_BASE = 'http://localhost:8000';
+
+// グローバル変数
+let currentGeneration = -1;
+let genomeIds = [];
 
 // RGB値(0-255)をThree.jsの16進数カラーコード(0x000000-0xFFFFFF)に変換
 function rgbToHex(r, g, b) {
     return (r << 16) | (g << 8) | b;
 }
 
-// JSONデータを読み込む
-async function loadShowData() {
-    const response = await fetch('mock_data/mock5.json');
-    const data = await response.json();
-    return data;
+// API呼び出し関数
+async function initializeEvolution() {
+    const response = await fetch(`${API_BASE}/api/evolution/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ num_drones: 5 })
+    });
+    return await response.json();
+}
+
+async function getGenomes() {
+    const response = await fetch(`${API_BASE}/api/evolution/genomes`);
+    return await response.json();
+}
+
+async function getPattern(genomeId, duration = 3.0) {
+    const response = await fetch(
+        `${API_BASE}/api/evolution/pattern/${genomeId}?duration=${duration}`
+    );
+    return await response.json();
 }
 
 // 各グリッドセルにThree.jsシーンを作成（ドローンショー表示）
@@ -123,21 +143,65 @@ async function createScene(container, showData) {
     resizeObserver.observe(container);
 }
 
+// パターンを読み込む
+async function loadPatterns() {
+    showLoading(true);
+    try {
+        // 初期化（まだ初期化されていない場合）
+        if (currentGeneration === -1) {
+            await initializeEvolution();
+        }
+
+        // ゲノムリストを取得
+        const data = await getGenomes();
+        currentGeneration = data.generation;
+        genomeIds = data.genome_ids.slice(0, 9); // 最初の9つ
+
+        // 世代情報を更新
+        document.getElementById('generation-info').textContent =
+            `世代: ${currentGeneration} | ゲノム数: ${genomeIds.length}`;
+
+        // 各グリッドにパターンを読み込み
+        const gridItems = document.querySelectorAll('.grid-item');
+        const promises = genomeIds.map(async (genomeId, index) => {
+            const pattern = await getPattern(genomeId);
+            clearGrid(gridItems[index]);
+            await createScene(gridItems[index], pattern);
+        });
+
+        await Promise.all(promises);
+    } catch (error) {
+        alert('エラー: ' + error.message);
+        console.error(error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// ヘルパー関数
+function showLoading(show) {
+    document.getElementById('loading').style.display = show ? 'block' : 'none';
+}
+
+function clearGrid(container) {
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+}
+
 // メイン処理
 async function main() {
-    // データを読み込む
-    const showData = await loadShowData();
-
-    // 9つのグリッドセルを作成
     const gridContainer = document.querySelector('.grid-container');
+
+    // 9つの空グリッドを作成
     for (let i = 0; i < 9; i++) {
         const gridItem = document.createElement('div');
         gridItem.className = 'grid-item';
         gridContainer.appendChild(gridItem);
-
-        // 各セルにシーンを作成（全て同じデータを表示）
-        createScene(gridItem, showData);
     }
+
+    // ボタンイベント
+    document.getElementById('load-btn').addEventListener('click', loadPatterns);
 }
 
 // 実行

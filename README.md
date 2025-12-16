@@ -121,7 +121,20 @@ drone_picbreeder/
 
 ### フロントエンド
 
-静的HTMLファイルなので、`frontend/index.html` をブラウザで直接開くか、Live Serverなどを使用してください。
+**前提条件**: バックエンドサーバーが起動している必要があります（`http://localhost:8000`）
+
+1. frontendディレクトリに移動
+   ```bash
+   cd frontend
+   ```
+
+2. HTTPサーバーを起動
+   ```bash
+   python -m http.server 3000
+   ```
+
+3. ブラウザでアクセス
+   - http://localhost:3000
 
 ## 開発状況
 

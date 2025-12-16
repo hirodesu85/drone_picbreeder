@@ -58,3 +58,42 @@ canvas {
     height: 100%;
     display: block;
 }
+
+/* 制御パネル */
+.control-panel {
+    margin: 2rem auto;
+    max-width: 600px;
+    text-align: center;
+}
+
+.control-panel button {
+    padding: 0.8rem 1.5rem;
+    margin: 0.5rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #4CAF50;
+    color: white;
+}
+
+.control-panel button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ローディング */
+.loading {
+    font-size: 1.5rem;
+    margin: 2rem;
+    color: white;
+}
+
+/* 世代カウンター */
+.generation-info {
+    font-size: 1.3rem;
+    margin: 1rem;
+    font-weight: bold;
+    color: white;
+}
