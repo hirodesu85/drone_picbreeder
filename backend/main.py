@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from api import routes
+from api import evolution
 
 app = FastAPI(
     title="Drone Picbreeder API",
@@ -9,3 +10,4 @@ app = FastAPI(
 
 # ルーターの登録
 app.include_router(routes.router)
+app.include_router(evolution.router)
