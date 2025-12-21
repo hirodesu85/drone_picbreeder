@@ -337,6 +337,9 @@ async function evolve() {
             item.classList.remove('selected');
         });
 
+        // 進化ボタンの状態を更新
+        updateEvolveButton();
+
         // 新しい世代をロード
         await loadPatterns();
     } catch (error) {
