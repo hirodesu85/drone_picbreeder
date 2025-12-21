@@ -95,6 +95,18 @@ canvas {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+.control-panel button:disabled {
+    background: #BDBDBD;
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.control-panel button:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
 /* ローディング */
 .loading {
     font-size: 1.2rem;
