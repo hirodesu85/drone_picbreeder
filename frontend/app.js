@@ -184,7 +184,7 @@ async function loadPatterns() {
 
         // 世代情報を更新
         document.getElementById('generation-info').textContent =
-            `世代: ${currentGeneration} | ゲノム数: ${genomeIds.length}`;
+            `世代: ${currentGeneration}`;
 
         // 各グリッドにパターンを読み込み
         const gridItems = document.querySelectorAll('.grid-item');
