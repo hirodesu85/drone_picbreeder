@@ -8,6 +8,7 @@ const API_BASE = 'http://localhost:8000';
 // グローバル変数
 let currentGeneration = -1;
 let genomeIds = [];
+let selectedIndices = new Set(); // 選択されたグリッドのインデックス
 
 // RGB値(0-255)をThree.jsの16進数カラーコード(0x000000-0xFFFFFF)に変換
 function rgbToHex(r, g, b) {
@@ -33,6 +34,30 @@ async function getPattern(genomeId, duration = 3.0) {
     const response = await fetch(
         `${API_BASE}/api/evolution/pattern/${genomeId}?duration=${duration}`
     );
+    return await response.json();
+}
+
+async function assignFitness(genomeId, fitness) {
+    const response = await fetch(`${API_BASE}/api/evolution/fitness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ genome_id: genomeId, fitness: fitness })
+    });
+    if (!response.ok) {
+        throw new Error(`適応度割り当て失敗: ${genomeId}`);
+    }
+    return await response.json();
+}
+
+async function evolveGeneration() {
+    const response = await fetch(`${API_BASE}/api/evolution/evolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_fitness: 0.0 })
+    });
+    if (!response.ok) {
+        throw new Error('進化失敗');
+    }
     return await response.json();
 }
 
@@ -170,6 +195,7 @@ async function loadPatterns() {
         });
 
         await Promise.all(promises);
+
     } catch (error) {
         alert('エラー: ' + error.message);
         console.error(error);
@@ -189,6 +215,87 @@ function clearGrid(container) {
     }
 }
 
+// グリッドクリックハンドラー（イベント委譲用）
+function handleGridClick(event) {
+    // クリックされた要素から.grid-itemを探す
+    // canvas要素をクリックした場合も親の.grid-itemを取得
+    const gridItem = event.target.closest('.grid-item');
+    if (!gridItem) return;
+
+    // 全グリッドアイテムからインデックスを取得
+    const gridItems = document.querySelectorAll('.grid-item');
+    const index = Array.from(gridItems).indexOf(gridItem);
+
+    if (index !== -1) {
+        toggleSelection(index);
+    }
+}
+
+// グリッド選択機能（イベント委譲パターン）
+let isGridSelectionInitialized = false;
+
+function setupGridSelection() {
+    if (isGridSelectionInitialized) {
+        return; // 既に初期化済みの場合は何もしない
+    }
+
+    const gridContainer = document.querySelector('.grid-container');
+    gridContainer.addEventListener('click', handleGridClick);
+    isGridSelectionInitialized = true;
+}
+
+function toggleSelection(index) {
+    const gridItem = document.querySelectorAll('.grid-item')[index];
+
+    if (selectedIndices.has(index)) {
+        // 選択解除
+        selectedIndices.delete(index);
+        gridItem.classList.remove('selected');
+    } else {
+        // 選択
+        selectedIndices.add(index);
+        gridItem.classList.add('selected');
+    }
+
+    // 進化ボタンの有効/無効を更新
+    updateEvolveButton();
+}
+
+function updateEvolveButton() {
+    const evolveBtn = document.getElementById('evolve-btn');
+    evolveBtn.disabled = selectedIndices.size === 0;
+}
+
+// 進化処理
+async function evolve() {
+    showLoading(true);
+    try {
+        // 全てのゲノムに適応度を割り当て
+        const fitnessPromises = genomeIds.map(async (genomeId, index) => {
+            const fitness = selectedIndices.has(index) ? 1.0 : 0.0;
+            await assignFitness(genomeId, fitness);
+        });
+        await Promise.all(fitnessPromises);
+
+        // 進化実行
+        await evolveGeneration();
+
+        // 選択状態をクリア
+        selectedIndices.clear();
+        document.querySelectorAll('.grid-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        // 新しい世代をロード
+        await loadPatterns();
+    } catch (error) {
+        alert('進化エラー: ' + error.message);
+        console.error(error);
+    } finally {
+        showLoading(false);
+    }
+}
+
 // メイン処理
 async function main() {
     const gridContainer = document.querySelector('.grid-container');
@@ -200,8 +307,12 @@ async function main() {
         gridContainer.appendChild(gridItem);
     }
 
+    // グリッド選択機能を初期化（一度だけ）
+    setupGridSelection();
+
     // ボタンイベント
     document.getElementById('load-btn').addEventListener('click', loadPatterns);
+    document.getElementById('evolve-btn').addEventListener('click', evolve);
 }
 
 // 実行
