@@ -311,8 +311,10 @@ async function main() {
     setupGridSelection();
 
     // ボタンイベント
-    document.getElementById('load-btn').addEventListener('click', loadPatterns);
     document.getElementById('evolve-btn').addEventListener('click', evolve);
+
+    // 自動的に世代0を読み込む
+    await loadPatterns();
 }
 
 // 実行
