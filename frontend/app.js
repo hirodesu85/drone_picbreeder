@@ -6,6 +6,7 @@ const FRAME_DURATION = 1000 / FPS; // ミリ秒
 const API_BASE = 'http://localhost:8000';
 
 // グローバル変数
+let sessionId = null; // セッションID
 let currentGeneration = -1;
 let genomeIds = [];
 let selectedIndices = new Set(); // 選択されたグリッドのインデックス
@@ -22,42 +23,92 @@ async function initializeEvolution() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ num_drones: 5 })
     });
-    return await response.json();
+    const data = await response.json();
+
+    // セッションIDを保存
+    sessionId = data.session_id;
+
+    return data;
 }
 
 async function getGenomes() {
-    const response = await fetch(`${API_BASE}/api/evolution/genomes`);
+    if (!sessionId) {
+        throw new Error('セッションが初期化されていません');
+    }
+
+    const response = await fetch(`${API_BASE}/api/evolution/genomes`, {
+        headers: {
+            'X-Session-ID': sessionId
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`ゲノム取得失敗: ${response.status}`);
+    }
+
     return await response.json();
 }
 
 async function getPattern(genomeId, duration = 3.0) {
+    if (!sessionId) {
+        throw new Error('セッションが初期化されていません');
+    }
+
     const response = await fetch(
-        `${API_BASE}/api/evolution/pattern/${genomeId}?duration=${duration}`
+        `${API_BASE}/api/evolution/pattern/${genomeId}?duration=${duration}`,
+        {
+            headers: {
+                'X-Session-ID': sessionId
+            }
+        }
     );
+
+    if (!response.ok) {
+        throw new Error(`パターン取得失敗: ${response.status}`);
+    }
+
     return await response.json();
 }
 
 async function assignFitness(genomeId, fitness) {
+    if (!sessionId) {
+        throw new Error('セッションが初期化されていません');
+    }
+
     const response = await fetch(`${API_BASE}/api/evolution/fitness`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Session-ID': sessionId
+        },
         body: JSON.stringify({ genome_id: genomeId, fitness: fitness })
     });
+
     if (!response.ok) {
         throw new Error(`適応度割り当て失敗: ${genomeId}`);
     }
+
     return await response.json();
 }
 
 async function evolveGeneration() {
+    if (!sessionId) {
+        throw new Error('セッションが初期化されていません');
+    }
+
     const response = await fetch(`${API_BASE}/api/evolution/evolve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Session-ID': sessionId
+        },
         body: JSON.stringify({ default_fitness: 0.0 })
     });
+
     if (!response.ok) {
         throw new Error('進化失敗');
     }
+
     return await response.json();
 }
 
