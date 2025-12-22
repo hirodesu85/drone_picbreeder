@@ -32,7 +32,7 @@ class PatternGenerator:
         self.num_drones = num_drones
 
         # シミュレーションパラメータ
-        self.fps = 30  # フレームレート（30fps）
+        self.fps = 25  # フレームレート（25fps）
         self.dt = 1.0 / self.fps  # タイムステップ（秒）
 
         # グリッド配置パラメータ

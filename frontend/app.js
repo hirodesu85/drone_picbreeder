@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // 定数
-const FPS = 30;
+const FPS = 25;
 const FRAME_DURATION = 1000 / FPS; // ミリ秒
 const API_BASE = 'http://localhost:8000';
 
