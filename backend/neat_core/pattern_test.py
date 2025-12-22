@@ -70,7 +70,7 @@ def main():
     print("-" * 60)
 
     try:
-        pattern_generator = PatternGenerator(cppn, genome_id, num_drones=5)
+        pattern_generator = PatternGenerator(cppn, genome_id, num_drones=50)
         print("✅ PatternGeneratorを作成しました")
         print(f"   ドローン数: {pattern_generator.num_drones}")
         print(f"   フレームレート: {pattern_generator.fps} fps")

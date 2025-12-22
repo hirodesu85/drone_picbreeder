@@ -125,7 +125,7 @@ async function createScene(container, showData) {
         0.1,
         1000
     );
-    camera.position.set(4, 4, 4);
+    camera.position.set(8, 8, 8);
     camera.lookAt(0, 0, 0);
 
     // レンダラー

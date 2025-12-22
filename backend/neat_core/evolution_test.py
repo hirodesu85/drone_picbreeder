@@ -139,7 +139,7 @@ def main():
     print("-" * 60)
 
     try:
-        pm = PopulationManager(config_path, num_drones=5)
+        pm = PopulationManager(config_path, num_drones=50)
         print(f"✅ PopulationManagerを作成しました")
         print(f"   集団サイズ: {pm.get_population_size()}")
         print(f"   現在の世代: {pm.get_generation()}")

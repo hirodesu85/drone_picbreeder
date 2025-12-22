@@ -35,27 +35,41 @@ class PatternGenerator:
         self.fps = 30  # フレームレート（30fps）
         self.dt = 1.0 / self.fps  # タイムステップ（秒）
 
-        # 初期配置パラメータ
-        self.initial_radius = 1.5  # 正多角形の半径（メートル）
+        # グリッド配置パラメータ
+        self.grid_cols = 10  # グリッドの列数
+        self.grid_rows = 5  # グリッドの行数
+        self.grid_spacing = 1.0  # グリッドの間隔（メートル）
         self.initial_z = 0.0  # 初期Z座標（地上）
+
+        # パラメータ検証
+        if self.num_drones != self.grid_cols * self.grid_rows:
+            raise ValueError(
+                f"num_drones ({self.num_drones}) must match grid size "
+                f"({self.grid_cols}x{self.grid_rows}={self.grid_cols * self.grid_rows})"
+            )
 
     def generate_initial_positions(self) -> List[Tuple[float, float, float]]:
         """
-        ドローンの初期位置を生成
+        ドローンの初期位置を生成（10x5グリッド配置）
 
-        正多角形（XY平面、z=0）の配置を生成します。
+        グリッドの中心を原点(0, 0, 0)に配置します。
 
         Returns:
             List[Tuple[float, float, float]]: (x, y, z)のタプルのリスト
         """
         positions = []
-        angle_step = 2.0 * math.pi / self.num_drones
 
+        # グリッドの中心オフセットを計算
+        x_offset = -(self.grid_cols - 1) * self.grid_spacing / 2.0
+        y_offset = -(self.grid_rows - 1) * self.grid_spacing / 2.0
+
+        # ドローンをグリッド座標にマッピング（行優先）
         for i in range(self.num_drones):
-            # 正多角形の頂点を計算（最初のドローンはX軸正方向）
-            angle = i * angle_step
-            x = self.initial_radius * math.cos(angle)
-            y = self.initial_radius * math.sin(angle)
+            row = i // self.grid_cols
+            col = i % self.grid_cols
+
+            x = col * self.grid_spacing + x_offset
+            y = row * self.grid_spacing + y_offset
             z = self.initial_z
 
             positions.append((x, y, z))
