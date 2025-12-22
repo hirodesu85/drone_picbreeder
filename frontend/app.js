@@ -21,7 +21,7 @@ async function initializeEvolution() {
     const response = await fetch(`${API_BASE}/api/evolution/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_drones: 5 })
+        body: JSON.stringify({ num_drones: 50 })
     });
     const data = await response.json();
 
