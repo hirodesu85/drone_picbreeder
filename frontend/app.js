@@ -231,7 +231,7 @@ async function loadPatterns() {
         // ゲノムリストを取得
         const data = await getGenomes();
         currentGeneration = data.generation;
-        genomeIds = data.genome_ids.slice(0, 9); // 最初の9つ
+        genomeIds = data.genome_ids; // 全て使う（sliceを削除）
 
         // 世代情報を更新
         document.getElementById('generation-info').textContent =
@@ -354,8 +354,8 @@ async function evolve() {
 async function main() {
     const gridContainer = document.querySelector('.grid-container');
 
-    // 9つの空グリッドを作成
-    for (let i = 0; i < 9; i++) {
+    // 12個の空グリッドを作成
+    for (let i = 0; i < 12; i++) {
         const gridItem = document.createElement('div');
         gridItem.className = 'grid-item';
         gridContainer.appendChild(gridItem);
