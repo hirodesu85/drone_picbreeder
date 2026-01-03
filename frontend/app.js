@@ -10,6 +10,7 @@ let sessionId = null; // セッションID
 let currentGeneration = -1;
 let genomeIds = [];
 let selectedIndices = new Set(); // 選択されたグリッドのインデックス
+let gridSceneCleanups = []; // グリッドシーンのクリーンアップ関数
 
 // Modal state
 let modalOpen = false;
@@ -203,9 +204,10 @@ async function createScene(container, showData) {
 
     // アニメーションループ
     let startTime = Date.now();
+    let animationId = null;
 
     function animate() {
-        requestAnimationFrame(animate);
+        animationId = requestAnimationFrame(animate);
 
         // 経過時間を計算
         const elapsed = Date.now() - startTime;
@@ -246,12 +248,53 @@ async function createScene(container, showData) {
         camera.updateProjectionMatrix();
     });
     resizeObserver.observe(container);
+
+    // クリーンアップ関数を返す
+    return function cleanup() {
+        // アニメーションループをキャンセル
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+
+        // ResizeObserverを切断
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+        }
+
+        // Three.jsリソースを破棄
+        scene.traverse((object) => {
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+                if (Array.isArray(object.material)) {
+                    object.material.forEach(m => m.dispose());
+                } else {
+                    object.material.dispose();
+                }
+            }
+        });
+
+        // レンダラーを破棄
+        if (renderer) {
+            renderer.dispose();
+        }
+
+        // canvasをDOMから削除（詳細ボタンは残す）
+        const canvas = container.querySelector('canvas');
+        if (canvas) {
+            container.removeChild(canvas);
+        }
+    };
 }
 
 // パターンを読み込む
 async function loadPatterns() {
     showLoading(true);
     try {
+        // 前のシーンをクリーンアップ
+        gridSceneCleanups.forEach(cleanup => cleanup());
+        gridSceneCleanups = [];
+
         // 初期化（まだ初期化されていない場合）
         if (currentGeneration === -1) {
             await initializeEvolution();
@@ -266,28 +309,39 @@ async function loadPatterns() {
         document.getElementById('generation-info').textContent =
             `世代: ${currentGeneration}`;
 
-        // 各グリッドにパターンを読み込み
         const gridItems = document.querySelectorAll('.grid-item');
-        const promises = genomeIds.map(async (genomeId, index) => {
-            const pattern = await getPattern(genomeId);
-            clearGrid(gridItems[index]);
-            await createScene(gridItems[index], pattern);
 
-            // Add detail button if not exists
+        // パターンを並列で事前取得（パフォーマンス維持）
+        const patternPromises = genomeIds.map(genomeId => getPattern(genomeId));
+        const patterns = await Promise.all(patternPromises);
+
+        // シーン作成は順次実行（WebGLコンテキスト制限対策）
+        for (let index = 0; index < genomeIds.length; index++) {
+            const genomeId = genomeIds[index];
+            const pattern = patterns[index];
+
+            clearGrid(gridItems[index]);
+            const cleanup = await createScene(gridItems[index], pattern);
+            gridSceneCleanups.push(cleanup);
+
+            // 詳細ボタンを追加（既存のコード）
             if (!gridItems[index].querySelector('.detail-btn')) {
                 const detailBtn = document.createElement('button');
                 detailBtn.className = 'detail-btn';
-                detailBtn.innerHTML = '🔍';
+                detailBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <circle cx="6.5" cy="6.5" r="4.5"/>
+                        <line x1="10" y1="10" x2="14" y2="14"/>
+                    </svg>
+                `;
                 detailBtn.title = '詳細表示';
                 detailBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent grid selection
+                    e.stopPropagation();
                     openModal(genomeId, index);
                 });
                 gridItems[index].appendChild(detailBtn);
             }
-        });
-
-        await Promise.all(promises);
+        }
 
     } catch (error) {
         alert('エラー: ' + error.message);

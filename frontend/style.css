@@ -152,6 +152,11 @@ canvas {
     border-color: #4CAF50;
 }
 
+.detail-btn svg {
+    display: block;
+    transition: inherit;
+}
+
 /* Modal */
 .modal {
     display: none;
