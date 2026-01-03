@@ -11,6 +11,14 @@ let currentGeneration = -1;
 let genomeIds = [];
 let selectedIndices = new Set(); // 選択されたグリッドのインデックス
 
+// Modal state
+let modalOpen = false;
+let modalScene = null;
+let modalRenderer = null;
+let modalCamera = null;
+let modalAnimationId = null;
+let modalResizeHandler = null;
+
 // RGB値(0-255)をThree.jsの16進数カラーコード(0x000000-0xFFFFFF)に変換
 function rgbToHex(r, g, b) {
     return (r << 16) | (g << 8) | b;
@@ -107,6 +115,27 @@ async function evolveGeneration() {
 
     if (!response.ok) {
         throw new Error('進化失敗');
+    }
+
+    return await response.json();
+}
+
+async function getCPPNStructure(genomeId) {
+    if (!sessionId) {
+        throw new Error('セッションが初期化されていません');
+    }
+
+    const response = await fetch(
+        `${API_BASE}/api/evolution/cppn/${genomeId}`,
+        {
+            headers: {
+                'X-Session-ID': sessionId
+            }
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`CPPN構造取得失敗: ${response.status}`);
     }
 
     return await response.json();
@@ -243,6 +272,19 @@ async function loadPatterns() {
             const pattern = await getPattern(genomeId);
             clearGrid(gridItems[index]);
             await createScene(gridItems[index], pattern);
+
+            // Add detail button if not exists
+            if (!gridItems[index].querySelector('.detail-btn')) {
+                const detailBtn = document.createElement('button');
+                detailBtn.className = 'detail-btn';
+                detailBtn.innerHTML = '🔍';
+                detailBtn.title = '詳細表示';
+                detailBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent grid selection
+                    openModal(genomeId, index);
+                });
+                gridItems[index].appendChild(detailBtn);
+            }
         });
 
         await Promise.all(promises);
@@ -317,6 +359,319 @@ function updateEvolveButton() {
     evolveBtn.disabled = selectedIndices.size === 0;
 }
 
+// モーダル制御関数
+function openModal(genomeId, genomeIndex) {
+    const modal = document.getElementById('detail-modal');
+    modal.classList.add('active');
+    modalOpen = true;
+
+    document.getElementById('modal-title').textContent =
+        `Animation ${genomeIndex + 1} - Genome ID: ${genomeId}`;
+
+    loadModalAnimation(genomeId);
+    loadCPPNGraph(genomeId);
+}
+
+function closeModal() {
+    const modal = document.getElementById('detail-modal');
+    modal.classList.remove('active');
+    modalOpen = false;
+    cleanupModalScene();
+}
+
+function cleanupModalScene() {
+    if (modalAnimationId) {
+        cancelAnimationFrame(modalAnimationId);
+        modalAnimationId = null;
+    }
+
+    if (modalRenderer) {
+        modalRenderer.dispose();
+        modalRenderer = null;
+    }
+
+    if (modalScene) {
+        modalScene.traverse((object) => {
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+                if (Array.isArray(object.material)) {
+                    object.material.forEach(m => m.dispose());
+                } else {
+                    object.material.dispose();
+                }
+            }
+        });
+        modalScene = null;
+    }
+
+    if (modalResizeHandler) {
+        window.removeEventListener('resize', modalResizeHandler);
+        modalResizeHandler = null;
+    }
+
+    modalCamera = null;
+
+    const container = document.getElementById('modal-scene-container');
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+}
+
+// モーダルシーンとアニメーション
+async function loadModalAnimation(genomeId) {
+    const container = document.getElementById('modal-scene-container');
+    const pattern = await getPattern(genomeId, 3.0);
+
+    // Scene
+    modalScene = new THREE.Scene();
+    modalScene.background = new THREE.Color(0x1a1a2e);
+
+    // Camera
+    modalCamera = new THREE.PerspectiveCamera(
+        75,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+    );
+    modalCamera.position.set(8, 8, 8);
+    modalCamera.lookAt(0, 0, 0);
+
+    // Renderer
+    modalRenderer = new THREE.WebGLRenderer({ antialias: true });
+    modalRenderer.setSize(container.clientWidth, container.clientHeight);
+    modalRenderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(modalRenderer.domElement);
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    modalScene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 5, 5);
+    modalScene.add(directionalLight);
+
+    // Drones
+    const droneMeshes = [];
+    const droneGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+    const numDrones = pattern.frames[0].drones.length;
+
+    for (let i = 0; i < numDrones; i++) {
+        const initialDrone = pattern.frames[0].drones[i];
+        const r = initialDrone.r !== undefined ? initialDrone.r : 127;
+        const g = initialDrone.g !== undefined ? initialDrone.g : 127;
+        const b = initialDrone.b !== undefined ? initialDrone.b : 255;
+
+        const material = new THREE.MeshPhongMaterial({
+            color: rgbToHex(r, g, b),
+            emissive: rgbToHex(
+                Math.floor(r * 0.7),
+                Math.floor(g * 0.7),
+                Math.floor(b * 0.7)
+            )
+        });
+        const drone = new THREE.Mesh(droneGeometry, material);
+        drone.position.set(initialDrone.x, initialDrone.y, initialDrone.z);
+
+        modalScene.add(drone);
+        droneMeshes.push(drone);
+    }
+
+    // Animation loop
+    let startTime = Date.now();
+
+    function animate() {
+        if (!modalOpen) return;
+
+        modalAnimationId = requestAnimationFrame(animate);
+
+        const elapsed = Date.now() - startTime;
+        const expectedFrameIndex = Math.floor(elapsed / FRAME_DURATION);
+        const currentFrameIndex = expectedFrameIndex % pattern.frames.length;
+        const currentFrame = pattern.frames[currentFrameIndex];
+
+        for (let i = 0; i < droneMeshes.length; i++) {
+            const drone = currentFrame.drones[i];
+            droneMeshes[i].position.set(drone.x, drone.y, drone.z);
+
+            if (drone.r !== undefined && drone.g !== undefined && drone.b !== undefined) {
+                droneMeshes[i].material.color.setHex(rgbToHex(drone.r, drone.g, drone.b));
+                droneMeshes[i].material.emissive.setHex(rgbToHex(
+                    Math.floor(drone.r * 0.7),
+                    Math.floor(drone.g * 0.7),
+                    Math.floor(drone.b * 0.7)
+                ));
+            }
+        }
+
+        modalRenderer.render(modalScene, modalCamera);
+    }
+    animate();
+
+    // Resize handler
+    modalResizeHandler = () => {
+        if (!modalOpen || !modalCamera || !modalRenderer) return;
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        modalCamera.aspect = width / height;
+        modalCamera.updateProjectionMatrix();
+        modalRenderer.setSize(width, height);
+    };
+    window.addEventListener('resize', modalResizeHandler);
+}
+
+// SVGグラフ描画
+async function loadCPPNGraph(genomeId) {
+    const svg = document.getElementById('cppn-svg');
+
+    try {
+        const cppnData = await getCPPNStructure(genomeId);
+
+        // Clear previous content
+        svg.innerHTML = '';
+
+        // SVG dimensions
+        const width = 360;
+        const height = 430;
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+        // Separate nodes by type
+        const inputNodes = cppnData.nodes.filter(n => n.type === 'input');
+        const outputNodes = cppnData.nodes.filter(n => n.type === 'output');
+        const hiddenNodes = cppnData.nodes.filter(n => n.type === 'hidden');
+
+        // Calculate layers (simple approach: input -> hidden -> output)
+        const layers = [inputNodes, hiddenNodes, outputNodes].filter(layer => layer.length > 0);
+        const layerSpacing = width / (layers.length + 1);
+
+        // Node positions
+        const nodePositions = new Map();
+
+        layers.forEach((layer, layerIndex) => {
+            const x = layerSpacing * (layerIndex + 1);
+            const nodeSpacing = height / (layer.length + 1);
+
+            layer.forEach((node, nodeIndex) => {
+                const y = nodeSpacing * (nodeIndex + 1);
+                nodePositions.set(node.id, { x, y, node });
+            });
+        });
+
+        // Draw connections first (so they appear behind nodes)
+        const connectionsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        connectionsGroup.setAttribute('class', 'connections');
+
+        cppnData.connections.forEach(conn => {
+            if (!conn.enabled) return; // Skip disabled connections
+
+            const fromPos = nodePositions.get(conn.from);
+            const toPos = nodePositions.get(conn.to);
+
+            if (fromPos && toPos) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', fromPos.x);
+                line.setAttribute('y1', fromPos.y);
+                line.setAttribute('x2', toPos.x);
+                line.setAttribute('y2', toPos.y);
+
+                // Weight determines stroke width and opacity
+                const absWeight = Math.abs(conn.weight);
+                const strokeWidth = Math.max(0.5, Math.min(3, absWeight / 10));
+                const opacity = Math.max(0.3, Math.min(0.9, absWeight / 30));
+
+                // Positive weights = green, negative = red
+                const color = conn.weight > 0 ? '#4CAF50' : '#f44336';
+
+                line.setAttribute('stroke', color);
+                line.setAttribute('stroke-width', strokeWidth);
+                line.setAttribute('opacity', opacity);
+
+                // Tooltip
+                const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                title.textContent = `Weight: ${conn.weight.toFixed(3)}`;
+                line.appendChild(title);
+
+                connectionsGroup.appendChild(line);
+            }
+        });
+        svg.appendChild(connectionsGroup);
+
+        // Draw nodes
+        const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        nodesGroup.setAttribute('class', 'nodes');
+
+        nodePositions.forEach(({ x, y, node }) => {
+            // Node circle
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', x);
+            circle.setAttribute('cy', y);
+            circle.setAttribute('r', 8);
+
+            // Color by type
+            let fillColor;
+            if (node.type === 'input') fillColor = '#2196F3';
+            else if (node.type === 'output') fillColor = '#FF5722';
+            else fillColor = '#4CAF50';
+
+            circle.setAttribute('fill', fillColor);
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '1.5');
+
+            // Tooltip
+            const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+            title.textContent = `${node.label}\nActivation: ${node.activation}\nBias: ${node.bias.toFixed(3)}`;
+            circle.appendChild(title);
+
+            nodesGroup.appendChild(circle);
+
+            // Node label
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', x);
+            text.setAttribute('y', y + 20);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', 'white');
+            text.setAttribute('font-size', '10');
+            text.setAttribute('font-weight', 'bold');
+            text.textContent = node.label;
+
+            nodesGroup.appendChild(text);
+        });
+        svg.appendChild(nodesGroup);
+
+        // Add legend
+        const legendGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        legendGroup.setAttribute('class', 'legend');
+        legendGroup.setAttribute('transform', 'translate(10, 10)');
+
+        const legendItems = [
+            { label: 'Input', color: '#2196F3' },
+            { label: 'Hidden', color: '#4CAF50' },
+            { label: 'Output', color: '#FF5722' }
+        ];
+
+        legendItems.forEach((item, i) => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', 0);
+            circle.setAttribute('cy', i * 18);
+            circle.setAttribute('r', 5);
+            circle.setAttribute('fill', item.color);
+            legendGroup.appendChild(circle);
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', 10);
+            text.setAttribute('y', i * 18 + 4);
+            text.setAttribute('fill', 'white');
+            text.setAttribute('font-size', '11');
+            text.textContent = item.label;
+            legendGroup.appendChild(text);
+        });
+
+        svg.appendChild(legendGroup);
+
+    } catch (error) {
+        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#ff6b6b" font-size="14">CPPN取得エラー</text>';
+        console.error('CPPN構造の取得エラー:', error);
+    }
+}
+
 // 進化処理
 async function evolve() {
     showLoading(true);
@@ -366,6 +721,15 @@ async function main() {
 
     // ボタンイベント
     document.getElementById('evolve-btn').addEventListener('click', evolve);
+
+    // Modal event listeners
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.getElementById('detail-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'detail-modal') closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalOpen) closeModal();
+    });
 
     // 自動的に世代0を読み込む
     await loadPatterns();
