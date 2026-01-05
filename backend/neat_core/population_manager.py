@@ -6,7 +6,7 @@ NEAT集団の管理と進化を担当します。
 """
 
 import neat
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from neat_core.cppn import CPPN
 from neat_core.pattern_generator import PatternGenerator
 from models.animation import Animation
@@ -48,6 +48,9 @@ class PopulationManager:
         # ゲノムIDからゲノムへのマッピング（現在の世代）
         self.current_genomes: Dict[int, neat.DefaultGenome] = {}
 
+        # 進化履歴（世代ごとのゲノム情報）
+        self.history: List[Dict[str, Any]] = []
+
         # 初期集団を取得
         self._update_current_genomes()
 
@@ -58,6 +61,40 @@ class PopulationManager:
         population.populationは{genome_id: genome}の辞書
         """
         self.current_genomes = dict(self.population.population)
+        self._record_generation_history()
+
+    def _record_generation_history(self):
+        """
+        現在の世代のゲノム情報を履歴に記録
+        """
+        # population.reproduction.ancestors から親情報を取得
+        ancestors = self.population.reproduction.ancestors
+
+        generation_data = {
+            "generation": self.generation,
+            "genomes": []
+        }
+
+        for genome_id, genome in self.current_genomes.items():
+            parent_info = ancestors.get(genome_id, ())
+
+            genome_data = {
+                "genome_id": genome_id,
+                "parent1": parent_info[0] if len(parent_info) > 0 else None,
+                "parent2": parent_info[1] if len(parent_info) > 1 else None,
+                "fitness": genome.fitness
+            }
+            generation_data["genomes"].append(genome_data)
+
+        # 既存の同じ世代のデータがあれば更新、なければ追加
+        existing_idx = next(
+            (i for i, h in enumerate(self.history) if h["generation"] == self.generation),
+            None
+        )
+        if existing_idx is not None:
+            self.history[existing_idx] = generation_data
+        else:
+            self.history.append(generation_data)
 
     def get_genome_ids(self) -> List[int]:
         """
@@ -221,3 +258,32 @@ class PopulationManager:
             return None
 
         return max(genomes_with_fitness, key=lambda g: g.fitness)
+
+    def get_evolution_history(self) -> List[Dict[str, Any]]:
+        """
+        全世代の進化履歴を取得
+
+        Returns:
+            List[Dict]: 世代ごとのゲノム情報リスト
+        """
+        # 現在の世代の適応度情報を履歴に反映
+        self._update_current_generation_fitness()
+        return self.history
+
+    def _update_current_generation_fitness(self):
+        """
+        現在の世代のゲノムの適応度情報を履歴に反映
+        """
+        if not self.history:
+            return
+
+        current_gen_data = next(
+            (h for h in self.history if h["generation"] == self.generation),
+            None
+        )
+
+        if current_gen_data:
+            for genome_data in current_gen_data["genomes"]:
+                genome = self.current_genomes.get(genome_data["genome_id"])
+                if genome:
+                    genome_data["fitness"] = genome.fitness

@@ -8,7 +8,7 @@ Step 5でセッション管理を実装。
 import os
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 from neat_core.population_manager import PopulationManager
 from models.animation import Animation
 from api.session_manager import get_session_manager
@@ -101,6 +101,26 @@ class CPPNStructure(BaseModel):
 
     class Config:
         populate_by_name = True
+
+
+class GenomeHistoryItem(BaseModel):
+    """個別ゲノムの履歴情報"""
+    genome_id: int
+    parent1: Optional[int] = None
+    parent2: Optional[int] = None
+    fitness: Optional[float] = None
+
+
+class GenerationHistory(BaseModel):
+    """世代ごとの履歴情報"""
+    generation: int
+    genomes: List[GenomeHistoryItem]
+
+
+class EvolutionHistoryResponse(BaseModel):
+    """進化履歴レスポンス"""
+    history: List[GenerationHistory]
+    total_generations: int
 
 
 # エンドポイント実装
@@ -395,4 +415,36 @@ async def get_cppn_structure(
         genome_id=genome_id,
         nodes=nodes,
         connections=connections
+    )
+
+
+@router.get("/history", response_model=EvolutionHistoryResponse)
+async def get_evolution_history(
+    x_session_id: str = Header(None, alias="X-Session-ID")
+):
+    """
+    進化履歴を取得
+
+    全世代のゲノム情報（ID、親情報、適応度）を返します。
+    """
+    if not x_session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="セッションIDが指定されていません。X-Session-IDヘッダーを設定してください。"
+        )
+
+    session_manager = get_session_manager()
+    population_manager = session_manager.get_session(x_session_id)
+
+    if population_manager is None:
+        raise HTTPException(
+            status_code=404,
+            detail="セッションが見つかりません。"
+        )
+
+    history = population_manager.get_evolution_history()
+
+    return EvolutionHistoryResponse(
+        history=history,
+        total_generations=len(history)
     )

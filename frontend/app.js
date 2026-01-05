@@ -20,6 +20,9 @@ let modalCamera = null;
 let modalAnimationId = null;
 let modalResizeHandler = null;
 
+// History modal state
+let historyModalOpen = false;
+
 // RGB値(0-255)をThree.jsの16進数カラーコード(0x000000-0xFFFFFF)に変換
 function rgbToHex(r, g, b) {
     return (r << 16) | (g << 8) | b;
@@ -137,6 +140,27 @@ async function getCPPNStructure(genomeId) {
 
     if (!response.ok) {
         throw new Error(`CPPN構造取得失敗: ${response.status}`);
+    }
+
+    return await response.json();
+}
+
+async function getEvolutionHistory() {
+    if (!sessionId) {
+        throw new Error('セッションが初期化されていません');
+    }
+
+    const response = await fetch(
+        `${API_BASE}/api/evolution/history`,
+        {
+            headers: {
+                'X-Session-ID': sessionId
+            }
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`進化履歴取得失敗: ${response.status}`);
     }
 
     return await response.json();
@@ -753,6 +777,89 @@ async function evolve() {
     }
 }
 
+// History Modal Functions
+async function openHistoryModal() {
+    const modal = document.getElementById('history-modal');
+    modal.classList.add('active');
+    historyModalOpen = true;
+
+    await loadHistoryTable();
+}
+
+function closeHistoryModal() {
+    const modal = document.getElementById('history-modal');
+    modal.classList.remove('active');
+    historyModalOpen = false;
+}
+
+async function loadHistoryTable() {
+    const tbody = document.getElementById('history-table-body');
+    tbody.innerHTML = '<tr><td colspan="5">読み込み中...</td></tr>';
+
+    try {
+        const data = await getEvolutionHistory();
+        tbody.innerHTML = '';
+
+        // 世代ごとにデータを表示（新しい世代が上）
+        const sortedHistory = [...data.history].sort((a, b) => b.generation - a.generation);
+
+        for (const generation of sortedHistory) {
+            // 世代ヘッダー行
+            const headerRow = document.createElement('tr');
+            headerRow.className = 'generation-header';
+            headerRow.innerHTML = `<td colspan="5">世代 ${generation.generation}</td>`;
+            tbody.appendChild(headerRow);
+
+            // ゲノムIDでソート
+            const sortedGenomes = [...generation.genomes].sort((a, b) => a.genome_id - b.genome_id);
+
+            for (const genome of sortedGenomes) {
+                const row = document.createElement('tr');
+
+                // 親の表示
+                const parent1Display = genome.parent1 !== null
+                    ? genome.parent1
+                    : '<span class="parent-null">-</span>';
+                const parent2Display = genome.parent2 !== null
+                    ? genome.parent2
+                    : '<span class="parent-null">-</span>';
+
+                // 適応度の表示とクラス
+                let fitnessDisplay, fitnessClass;
+                if (genome.fitness === null) {
+                    fitnessDisplay = '-';
+                    fitnessClass = 'fitness-none';
+                } else if (genome.fitness >= 0.5) {
+                    fitnessDisplay = genome.fitness.toFixed(2);
+                    fitnessClass = 'fitness-high';
+                } else {
+                    fitnessDisplay = genome.fitness.toFixed(2);
+                    fitnessClass = 'fitness-low';
+                }
+
+                row.innerHTML = `
+                    <td>${generation.generation}</td>
+                    <td>${genome.genome_id}</td>
+                    <td>${parent1Display}</td>
+                    <td>${parent2Display}</td>
+                    <td class="${fitnessClass}">${fitnessDisplay}</td>
+                `;
+
+                tbody.appendChild(row);
+            }
+        }
+
+        // データがない場合
+        if (data.history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">履歴データがありません</td></tr>';
+        }
+
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color: #ff6b6b;">エラー: ${error.message}</td></tr>`;
+        console.error('履歴取得エラー:', error);
+    }
+}
+
 // メイン処理
 async function main() {
     const gridContainer = document.querySelector('.grid-container');
@@ -775,8 +882,20 @@ async function main() {
     document.getElementById('detail-modal').addEventListener('click', (e) => {
         if (e.target.id === 'detail-modal') closeModal();
     });
+
+    // History modal event listeners
+    document.getElementById('history-btn').addEventListener('click', openHistoryModal);
+    document.getElementById('history-modal-close').addEventListener('click', closeHistoryModal);
+    document.getElementById('history-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'history-modal') closeHistoryModal();
+    });
+
+    // Escapeキーでモーダルを閉じる
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modalOpen) closeModal();
+        if (e.key === 'Escape') {
+            if (modalOpen) closeModal();
+            if (historyModalOpen) closeHistoryModal();
+        }
     });
 
     // 自動的に世代0を読み込む

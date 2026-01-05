@@ -263,3 +263,98 @@ canvas {
     from { opacity: 0; }
     to { opacity: 1; }
 }
+
+/* History Button */
+#history-btn {
+    background: #2196F3;
+}
+
+#history-btn:hover {
+    background: #1976D2;
+}
+
+/* History Modal */
+.history-modal-content {
+    max-width: 800px;
+    height: 80vh;
+}
+
+.history-modal-body {
+    padding: 1rem;
+    overflow: hidden;
+}
+
+.history-table-container {
+    height: 100%;
+    overflow-y: auto;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.history-table thead {
+    position: sticky;
+    top: 0;
+    background: #34495e;
+    z-index: 1;
+}
+
+.history-table th,
+.history-table td {
+    padding: 0.75rem 1rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-table th {
+    font-weight: 600;
+    color: #4CAF50;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.history-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.history-table td {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* 世代区切りの行 */
+.history-table .generation-header {
+    background: rgba(76, 175, 80, 0.2);
+    font-weight: bold;
+}
+
+.history-table .generation-header td {
+    color: #4CAF50;
+    padding: 0.5rem 1rem;
+}
+
+/* 親IDのハイライト */
+.history-table .parent-null {
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+}
+
+/* 適応度のカラーコーディング */
+.history-table .fitness-high {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.history-table .fitness-low {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.history-table .fitness-none {
+    color: rgba(255, 255, 255, 0.3);
+    font-style: italic;
+}
