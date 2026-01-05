@@ -289,7 +289,6 @@ async function createScene(container, showData) {
 
 // パターンを読み込む
 async function loadPatterns() {
-    showLoading(true);
     try {
         // 前のシーンをクリーンアップ
         gridSceneCleanups.forEach(cleanup => cleanup());
@@ -346,8 +345,6 @@ async function loadPatterns() {
     } catch (error) {
         alert('エラー: ' + error.message);
         console.error(error);
-    } finally {
-        showLoading(false);
     }
 }
 
@@ -728,7 +725,6 @@ async function loadCPPNGraph(genomeId) {
 
 // 進化処理
 async function evolve() {
-    showLoading(true);
     try {
         // 全てのゲノムに適応度を割り当て
         const fitnessPromises = genomeIds.map(async (genomeId, index) => {
@@ -754,8 +750,6 @@ async function evolve() {
     } catch (error) {
         alert('進化エラー: ' + error.message);
         console.error(error);
-    } finally {
-        showLoading(false);
     }
 }
 
