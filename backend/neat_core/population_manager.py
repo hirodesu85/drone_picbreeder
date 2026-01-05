@@ -194,6 +194,8 @@ class PopulationManager:
         次世代に進化
 
         適応度が割り当てられていないゲノムにはdefault_fitnessを使用します。
+        ユーザーが選択した個体（fitness > 0）のみが親候補になるよう、
+        survival_thresholdを動的に計算します。
 
         Args:
             default_fitness: デフォルト適応度（未割り当てゲノム用）
@@ -201,6 +203,20 @@ class PopulationManager:
         Returns:
             bool: 進化に成功した場合True
         """
+        # 選択された個体数をカウント（fitness > 0 の個体）
+        selected_count = sum(
+            1 for g in self.current_genomes.values()
+            if g.fitness is not None and g.fitness > 0
+        )
+
+        # 動的にsurvival_thresholdを計算
+        # 選択個体のみが親候補になるよう設定
+        if selected_count > 0:
+            total = len(self.current_genomes)
+            # NEAT-Pythonはceil()で切り上げるので、正確な比率を設定
+            threshold = min(1.0, selected_count / total)
+            self.config.reproduction_config.survival_threshold = threshold
+
         # 未割り当てのゲノムにデフォルト適応度を設定
         for genome in self.current_genomes.values():
             if genome.fitness is None:
