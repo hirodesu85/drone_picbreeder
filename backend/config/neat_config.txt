@@ -121,7 +121,7 @@ max_stagnation       = 15
 # エリート主義: 各種から最良の個体を何個保護するか
 species_elitism      = 2
 
-[DefaultReproduction]
+[CustomReproduction]
 # エリート主義: 集団全体から最良の個体を何個次世代に残すか
 elitism            = 2
 # 生存閾値: 各種の上位何%を親として選択するか

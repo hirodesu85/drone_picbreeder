@@ -9,6 +9,7 @@ import neat
 from typing import List, Dict, Optional, Any
 from neat_core.cppn import CPPN
 from neat_core.pattern_generator import PatternGenerator
+from neat_core.custom_reproduction import CustomReproduction
 from models.animation import Animation
 
 
@@ -31,7 +32,7 @@ class PopulationManager:
         # NEAT設定を読み込む
         self.config = neat.Config(
             neat.DefaultGenome,
-            neat.DefaultReproduction,
+            CustomReproduction,
             neat.DefaultSpeciesSet,
             neat.DefaultStagnation,
             config_path
