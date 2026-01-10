@@ -11,6 +11,7 @@ from neat_core.cppn import CPPN
 from neat_core.pattern_generator import PatternGenerator
 from neat_core.custom_reproduction import CustomReproduction
 from models.animation import Animation
+from constraints.constraint_checker import ConstraintChecker, ConstraintParams
 
 
 class PopulationManager:
@@ -40,8 +41,14 @@ class PopulationManager:
 
         self.num_drones = num_drones
 
+        # 制約チェッカーを初期化
+        self.constraint_checker = ConstraintChecker(ConstraintParams())
+
         # 集団を作成
         self.population = neat.Population(self.config)
+
+        # 初期集団が制約を満たすことを保証
+        self._ensure_valid_initial_population()
 
         # 世代カウンター
         self.generation = 0
@@ -96,6 +103,103 @@ class PopulationManager:
             self.history[existing_idx] = generation_data
         else:
             self.history.append(generation_data)
+
+    def _generate_animation_for_genome(self, genome) -> Animation:
+        """ゲノムオブジェクトからアニメーションを生成"""
+        cppn = CPPN(genome, self.config)
+        pattern_generator = PatternGenerator(cppn, genome.key, self.num_drones)
+        return pattern_generator.generate_animation(duration=3.0)
+
+    def _check_genome_constraints(self, genome) -> bool:
+        """ゲノムが制約を満たすかチェック"""
+        animation = self._generate_animation_for_genome(genome)
+        result = self.constraint_checker.check_animation(animation)
+        return result.passes_all
+
+    def _create_random_genome(self) -> neat.DefaultGenome:
+        """新しいランダムゲノムを作成"""
+        gid = next(self.population.reproduction.genome_indexer)
+        genome = self.config.genome_type(gid)
+        genome.configure_new(self.config.genome_config)
+        return genome
+
+    def _ensure_valid_initial_population(self, max_retries: int = 100):
+        """初期集団の全ゲノムが制約を満たすことを保証"""
+        replaced = False
+
+        for genome_id in list(self.population.population.keys()):
+            genome = self.population.population[genome_id]
+
+            if self._check_genome_constraints(genome):
+                continue
+
+            # 制約を満たすまで新しいランダムゲノムを生成
+            for _ in range(max_retries):
+                new_genome = self._create_random_genome()
+                if self._check_genome_constraints(new_genome):
+                    # 成功したら置き換え
+                    del self.population.population[genome_id]
+                    self.population.population[new_genome.key] = new_genome
+                    replaced = True
+                    break
+
+        # ゲノムを置き換えた場合、再 speciation
+        if replaced:
+            self.population.species.speciate(
+                self.config,
+                self.population.population,
+                self.population.generation
+            )
+
+    def _ensure_valid_offspring(self, parent_genomes: dict, max_retries: int = 100):
+        """進化後の子孫が制約を満たすことを保証"""
+        ancestors = self.population.reproduction.ancestors
+        replaced = False
+
+        for genome_id in list(self.population.population.keys()):
+            genome = self.population.population[genome_id]
+
+            if self._check_genome_constraints(genome):
+                continue
+
+            # 親情報を取得
+            parent_ids = ancestors.get(genome_id, ())
+
+            if len(parent_ids) < 2:
+                # 親がない（エリート個体など）場合はスキップ
+                continue
+
+            # 前世代から親を取得
+            parent1 = parent_genomes.get(parent_ids[0])
+            parent2 = parent_genomes.get(parent_ids[1])
+
+            if parent1 is None or parent2 is None:
+                # 親が見つからない場合はスキップ
+                continue
+
+            # 同じ親で交叉からやり直し
+            for _ in range(max_retries):
+                new_gid = next(self.population.reproduction.genome_indexer)
+                new_genome = self.config.genome_type(new_gid)
+                new_genome.configure_crossover(parent1, parent2, self.config.genome_config)
+                new_genome.mutate(self.config.genome_config)
+
+                if self._check_genome_constraints(new_genome):
+                    # 成功したら置き換え
+                    del self.population.population[genome_id]
+                    del ancestors[genome_id]
+                    self.population.population[new_gid] = new_genome
+                    ancestors[new_gid] = parent_ids
+                    replaced = True
+                    break
+
+        # ゲノムを置き換えた場合、再 speciation
+        if replaced:
+            self.population.species.speciate(
+                self.config,
+                self.population.population,
+                self.population.generation
+            )
 
     def get_genome_ids(self) -> List[int]:
         """
@@ -232,8 +336,14 @@ class PopulationManager:
             # 何もしない（適応度は既に割り当て済み）
             pass
 
+        # 進化前に現世代のゲノムを保存（親として使用するため）
+        previous_genomes = dict(self.population.population)
+
         # 1世代だけ進化
         self.population.run(dummy_fitness, 1)
+
+        # 子孫が制約を満たすことを保証（保存した親ゲノムを渡す）
+        self._ensure_valid_offspring(previous_genomes)
 
         # 世代カウンターを更新
         self.generation += 1
