@@ -80,10 +80,10 @@ feed_forward            = True
 initial_connection      = full_direct
 
 # ノード（neuron）の追加・削除確率
-# 新しいノードを追加する確率（30%）
-node_add_prob           = 0.3
-# 既存のノードを削除する確率（20%）
-node_delete_prob        = 0.2
+# 新しいノードを追加する確率（50%）
+node_add_prob           = 0.5
+# 既存のノードを削除する確率（30%）
+node_delete_prob        = 0.3
 
 # レスポンス（応答）パラメータ
 response_init_mean      = 1.0
