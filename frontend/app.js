@@ -166,6 +166,29 @@ async function getEvolutionHistory() {
     return await response.json();
 }
 
+async function checkConstraints() {
+    if (!sessionId) {
+        throw new Error('セッションが初期化されていません');
+    }
+
+    const response = await fetch(
+        `${API_BASE}/api/evolution/constraints/check`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-ID': sessionId
+            }
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`制約チェック失敗: ${response.status}`);
+    }
+
+    return await response.json();
+}
+
 // 各グリッドセルにThree.jsシーンを作成（ドローンショー表示）
 async function createScene(container, showData) {
     // シーン
@@ -220,7 +243,7 @@ async function createScene(container, showData) {
         const drone = new THREE.Mesh(droneGeometry, material);
 
         // 初期位置を設定
-        drone.position.set(initialDrone.x, initialDrone.y, initialDrone.z);
+        drone.position.set(initialDrone.x, initialDrone.z, initialDrone.y);
 
         scene.add(drone);
         droneMeshes.push(drone);
@@ -246,7 +269,7 @@ async function createScene(container, showData) {
             const drone = currentFrame.drones[i];
 
             // 位置を更新
-            droneMeshes[i].position.set(drone.x, drone.y, drone.z);
+            droneMeshes[i].position.set(drone.x, drone.z, drone.y);
 
             // 色を更新（RGB値が存在する場合）
             if (drone.r !== undefined && drone.g !== undefined && drone.b !== undefined) {
@@ -544,7 +567,7 @@ async function loadModalAnimation(genomeId) {
             )
         });
         const drone = new THREE.Mesh(droneGeometry, material);
-        drone.position.set(initialDrone.x, initialDrone.y, initialDrone.z);
+        drone.position.set(initialDrone.x, initialDrone.z, initialDrone.y);
 
         modalScene.add(drone);
         droneMeshes.push(drone);
@@ -565,7 +588,7 @@ async function loadModalAnimation(genomeId) {
 
         for (let i = 0; i < droneMeshes.length; i++) {
             const drone = currentFrame.drones[i];
-            droneMeshes[i].position.set(drone.x, drone.y, drone.z);
+            droneMeshes[i].position.set(drone.x, drone.z, drone.y);
 
             if (drone.r !== undefined && drone.g !== undefined && drone.b !== undefined) {
                 droneMeshes[i].material.color.setHex(rgbToHex(drone.r, drone.g, drone.b));
@@ -888,6 +911,17 @@ async function main() {
     document.getElementById('history-modal-close').addEventListener('click', closeHistoryModal);
     document.getElementById('history-modal').addEventListener('click', (e) => {
         if (e.target.id === 'history-modal') closeHistoryModal();
+    });
+
+    // Constraint check button
+    document.getElementById('constraint-check-btn').addEventListener('click', async () => {
+        try {
+            const result = await checkConstraints();
+            alert(result.message);
+        } catch (error) {
+            alert('制約チェックエラー: ' + error.message);
+            console.error(error);
+        }
     });
 
     // Escapeキーでモーダルを閉じる

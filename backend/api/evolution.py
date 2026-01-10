@@ -12,6 +12,7 @@ from typing import List, Optional, Any
 from neat_core.population_manager import PopulationManager
 from models.animation import Animation
 from api.session_manager import get_session_manager
+from constraints.constraint_checker import ConstraintParams, check_all_genomes
 
 
 # ルーターを作成
@@ -447,4 +448,79 @@ async def get_evolution_history(
     return EvolutionHistoryResponse(
         history=history,
         total_generations=len(history)
+    )
+
+
+class ConstraintCheckResponse(BaseModel):
+    """制約チェックレスポンス"""
+    success: bool
+    message: str
+
+
+@router.post("/constraints/check", response_model=ConstraintCheckResponse)
+async def check_constraints(
+    x_session_id: str = Header(None, alias="X-Session-ID")
+):
+    """
+    全12個体の制約違反をチェックし、コンソールにログ出力
+    """
+    if not x_session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="セッションIDが指定されていません。"
+        )
+
+    session_manager = get_session_manager()
+    population_manager = session_manager.get_session(x_session_id)
+
+    if population_manager is None:
+        raise HTTPException(
+            status_code=404,
+            detail="セッションが見つかりません。"
+        )
+
+    # 全ゲノムのアニメーションを生成
+    genome_ids = population_manager.get_genome_ids()
+    animations = []
+    for genome_id in genome_ids:
+        animation = population_manager.generate_pattern(genome_id, duration=3.0)
+        if animation:
+            animations.append(animation)
+
+    # 制約チェック
+    params = ConstraintParams()
+    check_result = check_all_genomes(animations, params)
+
+    # コンソール出力
+    print("\n" + "=" * 60)
+    print("CONSTRAINT CHECK RESULTS")
+    print("=" * 60)
+    print(f"Parameters:")
+    print(f"  Bounds: X[{params.x_min}, {params.x_max}], Y[{params.y_min}, {params.y_max}], Z[{params.z_min}, {params.z_max}]")
+    print(f"  Max Speed: horizontal={params.max_horizontal_speed}m/s, vertical={params.max_vertical_speed}m/s")
+    print(f"  Min Distance: {params.min_distance}m")
+    print("-" * 60)
+
+    for result in check_result["results"]:
+        status = "PASS" if result.passes_all else "FAIL"
+        print(f"\nGenome {result.genome_id}: {status}")
+        print(f"  Bounds:     {result.bounds_violations} violations (max: {result.max_bounds_violation:.3f}m)")
+        print(f"  H-Speed:    {result.horizontal_speed_violations} violations")
+        print(f"  V-Speed:    {result.vertical_speed_violations} violations")
+        min_dist = result.min_distance_observed if result.min_distance_observed != float('inf') else 0
+        print(f"  Distance:   {result.distance_violations} violations (min: {min_dist:.3f}m)")
+
+    summary = check_result["summary"]
+    print("\n" + "-" * 60)
+    print("SUMMARY")
+    print(f"  Pass bounds:    {summary['pass_bounds']}/{summary['total']}")
+    print(f"  Pass h-speed:   {summary['pass_h_speed']}/{summary['total']}")
+    print(f"  Pass v-speed:   {summary['pass_v_speed']}/{summary['total']}")
+    print(f"  Pass distance:  {summary['pass_distance']}/{summary['total']}")
+    print(f"  Pass ALL:       {summary['pass_all']}/{summary['total']}")
+    print("=" * 60 + "\n")
+
+    return ConstraintCheckResponse(
+        success=True,
+        message=f"制約チェック完了: {summary['pass_all']}/{summary['total']} 個体が全制約をパス"
     )
