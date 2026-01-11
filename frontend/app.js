@@ -810,7 +810,14 @@ async function loadCPPNGraph(genomeId) {
 
 // 進化処理
 async function evolve() {
+  const evolveBtn = document.getElementById("evolve-btn");
+  const originalText = evolveBtn.textContent;
+
   try {
+    // ローディング状態を設定
+    evolveBtn.disabled = true;
+    evolveBtn.textContent = "進化中...";
+
     // 全てのゲノムに適応度を割り当て
     const fitnessPromises = genomeIds.map(async (genomeId, index) => {
       const fitness = selectedIndices.has(index) ? 1.0 : 0.0;
@@ -827,14 +834,15 @@ async function evolve() {
       item.classList.remove("selected");
     });
 
-    // 進化ボタンの状態を更新
-    updateEvolveButton();
-
     // 新しい世代をロード
     await loadPatterns();
   } catch (error) {
     alert("進化エラー: " + error.message);
     console.error(error);
+  } finally {
+    // ボタンを元に戻す
+    evolveBtn.textContent = originalText;
+    updateEvolveButton();
   }
 }
 

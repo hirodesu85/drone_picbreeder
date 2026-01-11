@@ -24,8 +24,8 @@ num_outputs             = 6
 num_hidden              = 0
 
 # 活性化関数の設定
-# デフォルトの活性化関数
-activation_default      = sigmoid
+# デフォルトの活性化関数（randomで activation_options からランダム選択）
+activation_default      = random
 # 活性化関数の突然変異率（20%の確率で別の関数に変わる）
 activation_mutate_rate  = 0.2
 # 使用可能な活性化関数（CPPNに適した合成関数）
