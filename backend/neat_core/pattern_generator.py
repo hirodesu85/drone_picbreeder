@@ -35,22 +35,23 @@ class PatternGenerator:
         self.fps = 25  # フレームレート（25fps）
         self.dt = 1.0 / self.fps  # タイムステップ（秒）
 
-        # グリッド配置パラメータ
-        self.grid_cols = 10  # グリッドの列数
-        self.grid_rows = 5  # グリッドの行数
+        # 3Dグリッド配置パラメータ
+        self.grid_x = 5  # X方向の数
+        self.grid_y = 5  # Y方向の数
+        self.grid_z = 2  # Z方向の数（層数）
         self.grid_spacing = 1.0  # グリッドの間隔（メートル）
-        self.initial_z = 0.0  # 初期Z座標（地上）
 
         # パラメータ検証
-        if self.num_drones != self.grid_cols * self.grid_rows:
+        expected_drones = self.grid_x * self.grid_y * self.grid_z
+        if self.num_drones != expected_drones:
             raise ValueError(
                 f"num_drones ({self.num_drones}) must match grid size "
-                f"({self.grid_cols}x{self.grid_rows}={self.grid_cols * self.grid_rows})"
+                f"({self.grid_x}x{self.grid_y}x{self.grid_z}={expected_drones})"
             )
 
     def generate_initial_positions(self) -> List[Tuple[float, float, float]]:
         """
-        ドローンの初期位置を生成（10x5グリッド配置）
+        ドローンの初期位置を生成（5x5x2の3Dグリッド配置）
 
         グリッドの中心を原点(0, 0, 0)に配置します。
 
@@ -60,17 +61,20 @@ class PatternGenerator:
         positions = []
 
         # グリッドの中心オフセットを計算
-        x_offset = -(self.grid_cols - 1) * self.grid_spacing / 2.0
-        y_offset = -(self.grid_rows - 1) * self.grid_spacing / 2.0
+        x_offset = -(self.grid_x - 1) * self.grid_spacing / 2.0
+        y_offset = -(self.grid_y - 1) * self.grid_spacing / 2.0
+        z_offset = -(self.grid_z - 1) * self.grid_spacing / 2.0
 
-        # ドローンをグリッド座標にマッピング（行優先）
+        # 3Dグリッドでドローンを配置（Z層 → Y行 → X列 の順）
         for i in range(self.num_drones):
-            row = i // self.grid_cols
-            col = i % self.grid_cols
+            z_idx = i // (self.grid_x * self.grid_y)
+            remainder = i % (self.grid_x * self.grid_y)
+            y_idx = remainder // self.grid_x
+            x_idx = remainder % self.grid_x
 
-            x = col * self.grid_spacing + x_offset
-            y = row * self.grid_spacing + y_offset
-            z = self.initial_z
+            x = x_idx * self.grid_spacing + x_offset
+            y = y_idx * self.grid_spacing + y_offset
+            z = z_idx * self.grid_spacing + z_offset
 
             positions.append((x, y, z))
 
