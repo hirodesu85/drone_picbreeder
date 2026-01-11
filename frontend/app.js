@@ -184,7 +184,7 @@ async function checkConstraints() {
 async function createScene(container, showData) {
   // シーン
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a2e);
+  scene.background = new THREE.Color(0x000000);
 
   // カメラ（俯瞰視点）
   const camera = new THREE.PerspectiveCamera(
@@ -520,7 +520,7 @@ async function loadModalAnimation(genomeId) {
 
   // Scene
   modalScene = new THREE.Scene();
-  modalScene.background = new THREE.Color(0x1a1a2e);
+  modalScene.background = new THREE.Color(0x000000);
 
   // Camera
   modalCamera = new THREE.PerspectiveCamera(
