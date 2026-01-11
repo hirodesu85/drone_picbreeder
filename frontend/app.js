@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 // 定数
 const FPS = 25;
@@ -19,6 +20,7 @@ let modalRenderer = null;
 let modalCamera = null;
 let modalAnimationId = null;
 let modalResizeHandler = null;
+let modalControls = null;
 
 // History modal state
 let historyModalOpen = false;
@@ -481,6 +483,11 @@ function cleanupModalScene() {
     modalAnimationId = null;
   }
 
+  if (modalControls) {
+    modalControls.dispose();
+    modalControls = null;
+  }
+
   if (modalRenderer) {
     modalRenderer.dispose();
     modalRenderer = null;
@@ -537,6 +544,13 @@ async function loadModalAnimation(genomeId) {
   modalRenderer.setSize(container.clientWidth, container.clientHeight);
   modalRenderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(modalRenderer.domElement);
+
+  // OrbitControls（カメラ操作）
+  modalControls = new OrbitControls(modalCamera, modalRenderer.domElement);
+  modalControls.enableDamping = true;
+  modalControls.dampingFactor = 0.1;
+  modalControls.minDistance = 5;
+  modalControls.maxDistance = 50;
 
   // Lights
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -604,6 +618,11 @@ async function loadModalAnimation(genomeId) {
           ),
         );
       }
+    }
+
+    // OrbitControlsの更新（ダンピング用）
+    if (modalControls) {
+      modalControls.update();
     }
 
     modalRenderer.render(modalScene, modalCamera);
