@@ -75,7 +75,7 @@ Picbreeder（インタラクティブな進化計算を用いたアート生成�
 |-----------|------|------|
 | conn_add_prob | 50% | 新しい接続を追加 |
 | conn_delete_prob | 30% | 接続を削除 |
-| node_add_prob | 50% | 新しいノードを追加 |
+| node_add_prob | 60% | 新しいノードを追加 |
 | node_delete_prob | 30% | ノードを削除 |
 
 詳細な設定は `backend/config/neat_config.txt` を参照してください。
