@@ -25,6 +25,14 @@ let modalControls = null;
 // History modal state
 let historyModalOpen = false;
 
+// Capture mode state
+let captureMode = false;
+let isPlaying = true;
+let currentFrameIndex = 0;
+let totalFrames = 0;
+let modalPatternData = null;
+let modalDroneMeshes = [];
+
 // RGB値(0-255)をThree.jsの16進数カラーコード(0x000000-0xFFFFFF)に変換
 function rgbToHex(r, g, b) {
   return (r << 16) | (g << 8) | b;
@@ -474,6 +482,17 @@ function closeModal() {
   const modal = document.getElementById("detail-modal");
   modal.classList.remove("active");
   modalOpen = false;
+
+  // キャプチャモードをリセット
+  if (captureMode) {
+    toggleCaptureMode();
+  }
+  captureMode = false;
+  isPlaying = true;
+  currentFrameIndex = 0;
+  modalPatternData = null;
+  modalDroneMeshes = [];
+
   cleanupModalScene();
 }
 
@@ -520,10 +539,99 @@ function cleanupModalScene() {
   }
 }
 
+// フレーム制御関数
+function renderFrame(frameIndex) {
+  if (!modalPatternData || !modalDroneMeshes.length) return;
+
+  const frame = modalPatternData.frames[frameIndex];
+  for (let i = 0; i < modalDroneMeshes.length; i++) {
+    const drone = frame.drones[i];
+    modalDroneMeshes[i].position.set(drone.x, drone.z, drone.y);
+
+    if (drone.r !== undefined && drone.g !== undefined && drone.b !== undefined) {
+      modalDroneMeshes[i].material.color.setHex(rgbToHex(drone.r, drone.g, drone.b));
+      modalDroneMeshes[i].material.emissive.setHex(
+        rgbToHex(
+          Math.floor(drone.r * 0.7),
+          Math.floor(drone.g * 0.7),
+          Math.floor(drone.b * 0.7),
+        ),
+      );
+    }
+  }
+}
+
+function updateFrameCounter() {
+  const counter = document.getElementById("frame-counter");
+  if (counter) {
+    counter.textContent = `${currentFrameIndex + 1} / ${totalFrames}`;
+  }
+}
+
+function updatePlayPauseButton() {
+  const playIcon = document.getElementById("play-icon");
+  const pauseIcon = document.getElementById("pause-icon");
+
+  if (isPlaying) {
+    playIcon.classList.add("hidden");
+    pauseIcon.classList.remove("hidden");
+  } else {
+    playIcon.classList.remove("hidden");
+    pauseIcon.classList.add("hidden");
+  }
+}
+
+function togglePlayPause() {
+  isPlaying = !isPlaying;
+  updatePlayPauseButton();
+}
+
+function nextFrame() {
+  isPlaying = false;
+  currentFrameIndex = (currentFrameIndex + 1) % totalFrames;
+  updateFrameCounter();
+  updatePlayPauseButton();
+}
+
+function prevFrame() {
+  isPlaying = false;
+  currentFrameIndex = (currentFrameIndex - 1 + totalFrames) % totalFrames;
+  updateFrameCounter();
+  updatePlayPauseButton();
+}
+
+function toggleCaptureMode() {
+  captureMode = !captureMode;
+
+  const captureBtn = document.getElementById("capture-mode-btn");
+  const cppnGraph = document.getElementById("cppn-graph");
+  const frameControls = document.getElementById("frame-controls");
+
+  if (captureMode) {
+    captureBtn.classList.add("active");
+    captureBtn.textContent = "コマ送り終了";
+    cppnGraph.classList.add("capture-hidden");
+    frameControls.classList.remove("hidden");
+  } else {
+    captureBtn.classList.remove("active");
+    captureBtn.textContent = "コマ送り";
+    cppnGraph.classList.remove("capture-hidden");
+    frameControls.classList.add("hidden");
+    isPlaying = true;
+    updatePlayPauseButton();
+  }
+}
+
 // モーダルシーンとアニメーション
 async function loadModalAnimation(genomeId) {
   const container = document.getElementById("modal-scene-container");
   const pattern = await getPattern(genomeId, 3.0);
+
+  // パターンデータを保持
+  modalPatternData = pattern;
+  totalFrames = pattern.frames.length;
+  currentFrameIndex = 0;
+  isPlaying = true;
 
   // Scene
   modalScene = new THREE.Scene();
@@ -560,7 +668,7 @@ async function loadModalAnimation(genomeId) {
   modalScene.add(directionalLight);
 
   // Drones
-  const droneMeshes = [];
+  modalDroneMeshes = [];
   const droneGeometry = new THREE.SphereGeometry(0.1, 16, 16);
   const numDrones = pattern.frames[0].drones.length;
 
@@ -582,43 +690,34 @@ async function loadModalAnimation(genomeId) {
     drone.position.set(initialDrone.x, initialDrone.z, initialDrone.y);
 
     modalScene.add(drone);
-    droneMeshes.push(drone);
+    modalDroneMeshes.push(drone);
   }
 
+  // フレームカウンターを初期化
+  updateFrameCounter();
+  updatePlayPauseButton();
+
   // Animation loop
-  let startTime = Date.now();
+  let lastFrameTime = Date.now();
 
   function animate() {
     if (!modalOpen) return;
 
     modalAnimationId = requestAnimationFrame(animate);
 
-    const elapsed = Date.now() - startTime;
-    const expectedFrameIndex = Math.floor(elapsed / FRAME_DURATION);
-    const currentFrameIndex = expectedFrameIndex % pattern.frames.length;
-    const currentFrame = pattern.frames[currentFrameIndex];
+    const now = Date.now();
 
-    for (let i = 0; i < droneMeshes.length; i++) {
-      const drone = currentFrame.drones[i];
-      droneMeshes[i].position.set(drone.x, drone.z, drone.y);
-
-      if (
-        drone.r !== undefined &&
-        drone.g !== undefined &&
-        drone.b !== undefined
-      ) {
-        droneMeshes[i].material.color.setHex(
-          rgbToHex(drone.r, drone.g, drone.b),
-        );
-        droneMeshes[i].material.emissive.setHex(
-          rgbToHex(
-            Math.floor(drone.r * 0.7),
-            Math.floor(drone.g * 0.7),
-            Math.floor(drone.b * 0.7),
-          ),
-        );
+    // 再生中の場合のみフレームを進める
+    if (isPlaying) {
+      if (now - lastFrameTime >= FRAME_DURATION) {
+        currentFrameIndex = (currentFrameIndex + 1) % totalFrames;
+        lastFrameTime = now;
+        updateFrameCounter();
       }
     }
+
+    // 現在のフレームでドローンを描画
+    renderFrame(currentFrameIndex);
 
     // OrbitControlsの更新（ダンピング用）
     if (modalControls) {
@@ -976,6 +1075,16 @@ async function main() {
     if (e.target.id === "detail-modal") closeModal();
   });
 
+  // Capture mode and frame control event listeners
+  document
+    .getElementById("capture-mode-btn")
+    .addEventListener("click", toggleCaptureMode);
+  document.getElementById("frame-prev").addEventListener("click", prevFrame);
+  document.getElementById("frame-next").addEventListener("click", nextFrame);
+  document
+    .getElementById("frame-play-pause")
+    .addEventListener("click", togglePlayPause);
+
   // History modal event listeners
   document
     .getElementById("history-btn")
@@ -1000,11 +1109,28 @@ async function main() {
       }
     });
 
-  // Escapeキーでモーダルを閉じる
+  // キーボードショートカット
   document.addEventListener("keydown", (e) => {
+    // Escapeキーでモーダルを閉じる
     if (e.key === "Escape") {
       if (modalOpen) closeModal();
       if (historyModalOpen) closeHistoryModal();
+    }
+
+    // キャプチャモード時のキーボードショートカット
+    if (modalOpen && captureMode) {
+      if (e.key === " ") {
+        e.preventDefault();
+        togglePlayPause();
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        nextFrame();
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        prevFrame();
+      }
     }
   });
 

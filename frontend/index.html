@@ -38,12 +38,38 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modal-title">Animation Detail</h2>
-                <button id="modal-close" class="close-btn">&times;</button>
+                <div class="modal-header-controls">
+                    <button id="capture-mode-btn" class="capture-btn">コマ送り</button>
+                    <button id="modal-close" class="close-btn">&times;</button>
+                </div>
             </div>
             <div class="modal-body">
                 <div id="modal-scene-container" class="modal-scene"></div>
                 <div id="cppn-graph" class="cppn-graph">
                     <svg id="cppn-svg"></svg>
+                </div>
+                <!-- フレーム制御UI（キャプチャモード時のみ表示） -->
+                <div id="frame-controls" class="frame-controls hidden">
+                    <button id="frame-prev" class="frame-btn" title="前のフレーム">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <polygon points="15,4 15,16 5,10"/>
+                        </svg>
+                    </button>
+                    <button id="frame-play-pause" class="frame-btn play-pause-btn" title="再生/一時停止">
+                        <svg id="pause-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <rect x="5" y="4" width="4" height="12"/>
+                            <rect x="11" y="4" width="4" height="12"/>
+                        </svg>
+                        <svg id="play-icon" class="hidden" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <polygon points="5,4 5,16 16,10"/>
+                        </svg>
+                    </button>
+                    <button id="frame-next" class="frame-btn" title="次のフレーム">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <polygon points="5,4 5,16 15,10"/>
+                        </svg>
+                    </button>
+                    <span id="frame-counter" class="frame-counter">1 / 75</span>
                 </div>
             </div>
         </div>

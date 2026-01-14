@@ -358,3 +358,108 @@ canvas {
     color: rgba(255, 255, 255, 0.3);
     font-style: italic;
 }
+
+/* Modal Header Controls */
+.modal-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Capture Button */
+.capture-btn {
+    padding: 0.5rem 1rem;
+    background: #FF9800;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.capture-btn:hover {
+    background: #F57C00;
+    transform: translateY(-1px);
+}
+
+.capture-btn.active {
+    background: #4CAF50;
+}
+
+/* Frame Controls Panel */
+.frame-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    backdrop-filter: blur(10px);
+    z-index: 100;
+}
+
+.frame-controls.hidden {
+    display: none;
+}
+
+/* Frame Control Buttons */
+.frame-btn {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.frame-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.frame-btn:active {
+    transform: scale(0.95);
+}
+
+.play-pause-btn {
+    width: 48px;
+    height: 48px;
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.play-pause-btn:hover {
+    background: #43A047;
+}
+
+/* Frame Counter */
+.frame-counter {
+    font-size: 1rem;
+    font-weight: bold;
+    color: white;
+    min-width: 80px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+}
+
+/* Hidden class for icons */
+#play-icon.hidden,
+#pause-icon.hidden {
+    display: none;
+}
+
+/* キャプチャモード時のCPPNグラフ非表示 */
+.cppn-graph.capture-hidden {
+    display: none;
+}
