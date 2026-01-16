@@ -123,7 +123,7 @@ class PopulationManager:
         genome.configure_new(self.config.genome_config)
         return genome
 
-    def _ensure_valid_initial_population(self, max_retries: int = 100):
+    def _ensure_valid_initial_population(self, max_retries: int = 300):
         """初期集団の全ゲノムが制約を満たすことを保証"""
         replaced = False
 
@@ -151,7 +151,7 @@ class PopulationManager:
                 self.population.generation
             )
 
-    def _ensure_valid_offspring(self, parent_genomes: dict, max_retries: int = 100):
+    def _ensure_valid_offspring(self, parent_genomes: dict, max_retries: int = 300):
         """進化後の子孫が制約を満たすことを保証"""
         ancestors = self.population.reproduction.ancestors
         replaced = False
