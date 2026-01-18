@@ -469,3 +469,117 @@ canvas {
 .cppn-graph.capture-hidden {
     display: none;
 }
+
+/* Gallery Button */
+#gallery-btn {
+    background: #9C27B0;
+}
+
+#gallery-btn:hover {
+    background: #7B1FA2;
+}
+
+/* Save Button */
+.save-btn {
+    padding: 0.5rem 1rem;
+    background: #E91E63;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.save-btn:hover {
+    background: #C2185B;
+    transform: translateY(-1px);
+}
+
+.save-btn:disabled {
+    background: #BDBDBD;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Delete Button */
+.delete-btn {
+    padding: 0.5rem 1rem;
+    background: #f44336;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.delete-btn:hover {
+    background: #D32F2F;
+    transform: translateY(-1px);
+}
+
+/* Gallery Modal */
+.gallery-modal-content {
+    max-width: 900px;
+    height: 80vh;
+}
+
+.gallery-modal-body {
+    padding: 1rem;
+    overflow-y: auto;
+    height: calc(100% - 80px);
+}
+
+/* Gallery Grid */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 0.5rem;
+}
+
+/* Gallery Card */
+.gallery-card {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.gallery-card:hover {
+    background: rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.gallery-card-id {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 0.5rem;
+}
+
+.gallery-card-date {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Gallery Empty State */
+.gallery-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1.1rem;
+}
+
+/* Gallery Loading State */
+.gallery-loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    color: rgba(255, 255, 255, 0.7);
+}

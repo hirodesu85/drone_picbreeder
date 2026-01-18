@@ -25,6 +25,19 @@ let modalControls = null;
 // History modal state
 let historyModalOpen = false;
 
+// Gallery modal state
+let galleryModalOpen = false;
+let galleryPreviewModalOpen = false;
+let galleryPreviewScene = null;
+let galleryPreviewRenderer = null;
+let galleryPreviewCamera = null;
+let galleryPreviewAnimationId = null;
+let galleryPreviewResizeHandler = null;
+let currentGalleryAnimationId = null;
+
+// Current modal genome ID for saving
+let currentModalGenomeId = null;
+
 // Capture mode state
 let captureMode = false;
 let isPlaying = true;
@@ -165,6 +178,58 @@ async function getEvolutionHistory() {
 
   if (!response.ok) {
     throw new Error(`進化履歴取得失敗: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Gallery API Functions
+async function saveAnimationToGallery(animationData, cppnData) {
+  const response = await fetch(`${API_BASE}/api/gallery/animations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      animation_data: animationData,
+      cppn_data: cppnData,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`保存失敗: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+async function getGalleryAnimations(offset = 0, limit = 50) {
+  const response = await fetch(
+    `${API_BASE}/api/gallery/animations?offset=${offset}&limit=${limit}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`ギャラリー取得失敗: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+async function getGalleryAnimation(id) {
+  const response = await fetch(`${API_BASE}/api/gallery/animations/${id}`);
+
+  if (!response.ok) {
+    throw new Error(`アニメーション取得失敗: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+async function deleteGalleryAnimation(id) {
+  const response = await fetch(`${API_BASE}/api/gallery/animations/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`削除失敗: ${response.status}`);
   }
 
   return await response.json();
@@ -450,6 +515,9 @@ function openModal(genomeId, genomeIndex) {
   const modal = document.getElementById("detail-modal");
   modal.classList.add("active");
   modalOpen = true;
+
+  // Store current genome ID for saving
+  currentModalGenomeId = genomeId;
 
   document.getElementById("modal-title").textContent =
     `Animation ${genomeIndex + 1} - Genome ID: ${genomeId}`;
@@ -1032,6 +1100,458 @@ async function loadHistoryTable() {
   }
 }
 
+// Gallery Functions
+async function handleSaveAnimation() {
+  if (!currentModalGenomeId) {
+    alert("保存するアニメーションがありません");
+    return;
+  }
+
+  const saveBtn = document.getElementById("save-animation-btn");
+  const originalText = saveBtn.textContent;
+
+  try {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "保存中...";
+
+    // Get animation pattern data
+    const animationData = await getPattern(currentModalGenomeId, 3.0);
+
+    // Get CPPN structure data
+    const cppnData = await getCPPNStructure(currentModalGenomeId);
+
+    // Save to gallery
+    const result = await saveAnimationToGallery(animationData, cppnData);
+
+    alert(`保存しました (ID: ${result.id})`);
+  } catch (error) {
+    alert("保存エラー: " + error.message);
+    console.error("保存エラー:", error);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalText;
+  }
+}
+
+function openGalleryModal() {
+  const modal = document.getElementById("gallery-modal");
+  modal.classList.add("active");
+  galleryModalOpen = true;
+
+  loadGalleryGrid();
+}
+
+function closeGalleryModal() {
+  const modal = document.getElementById("gallery-modal");
+  modal.classList.remove("active");
+  galleryModalOpen = false;
+}
+
+async function loadGalleryGrid() {
+  const grid = document.getElementById("gallery-grid");
+  grid.innerHTML = '<div class="gallery-loading">読み込み中...</div>';
+
+  try {
+    const data = await getGalleryAnimations();
+
+    grid.innerHTML = "";
+
+    if (data.animations.length === 0) {
+      grid.innerHTML = '<div class="gallery-empty">保存されたアニメーションはありません</div>';
+      return;
+    }
+
+    for (const animation of data.animations) {
+      const card = document.createElement("div");
+      card.className = "gallery-card";
+      card.dataset.id = animation.id;
+
+      // Format date
+      const date = new Date(animation.created_at);
+      const formattedDate = date.toLocaleString("ja-JP", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      card.innerHTML = `
+        <div class="gallery-card-id">ID: ${animation.id}</div>
+        <div class="gallery-card-date">${formattedDate}</div>
+      `;
+
+      card.addEventListener("click", () => openGalleryPreview(animation.id));
+
+      grid.appendChild(card);
+    }
+  } catch (error) {
+    grid.innerHTML = `<div class="gallery-empty" style="color: #ff6b6b;">エラー: ${error.message}</div>`;
+    console.error("ギャラリー取得エラー:", error);
+  }
+}
+
+async function openGalleryPreview(id) {
+  const modal = document.getElementById("gallery-preview-modal");
+  modal.classList.add("active");
+  galleryPreviewModalOpen = true;
+  currentGalleryAnimationId = id;
+
+  document.getElementById("gallery-preview-title").textContent = `保存済みアニメーション - ID: ${id}`;
+
+  try {
+    const data = await getGalleryAnimation(id);
+    loadGalleryPreviewAnimation(data.animation_data);
+    loadGalleryCPPNGraph(data.cppn_data);
+  } catch (error) {
+    alert("アニメーション取得エラー: " + error.message);
+    closeGalleryPreview();
+  }
+}
+
+function closeGalleryPreview() {
+  const modal = document.getElementById("gallery-preview-modal");
+  modal.classList.remove("active");
+  galleryPreviewModalOpen = false;
+  currentGalleryAnimationId = null;
+
+  cleanupGalleryPreviewScene();
+}
+
+function cleanupGalleryPreviewScene() {
+  if (galleryPreviewAnimationId) {
+    cancelAnimationFrame(galleryPreviewAnimationId);
+    galleryPreviewAnimationId = null;
+  }
+
+  if (galleryPreviewRenderer) {
+    galleryPreviewRenderer.dispose();
+    galleryPreviewRenderer = null;
+  }
+
+  if (galleryPreviewScene) {
+    galleryPreviewScene.traverse((object) => {
+      if (object.geometry) object.geometry.dispose();
+      if (object.material) {
+        if (Array.isArray(object.material)) {
+          object.material.forEach((m) => m.dispose());
+        } else {
+          object.material.dispose();
+        }
+      }
+    });
+    galleryPreviewScene = null;
+  }
+
+  if (galleryPreviewResizeHandler) {
+    window.removeEventListener("resize", galleryPreviewResizeHandler);
+    galleryPreviewResizeHandler = null;
+  }
+
+  galleryPreviewCamera = null;
+
+  const container = document.getElementById("gallery-preview-scene-container");
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+}
+
+function loadGalleryPreviewAnimation(pattern) {
+  const container = document.getElementById("gallery-preview-scene-container");
+
+  // Scene
+  galleryPreviewScene = new THREE.Scene();
+  galleryPreviewScene.background = new THREE.Color(0x000000);
+
+  // Camera
+  galleryPreviewCamera = new THREE.PerspectiveCamera(
+    75,
+    container.clientWidth / container.clientHeight,
+    0.1,
+    1000
+  );
+  galleryPreviewCamera.position.set(13, 7, 13);
+  galleryPreviewCamera.lookAt(0, 0, 0);
+
+  // Renderer
+  galleryPreviewRenderer = new THREE.WebGLRenderer({ antialias: true });
+  galleryPreviewRenderer.setSize(container.clientWidth, container.clientHeight);
+  galleryPreviewRenderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(galleryPreviewRenderer.domElement);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  galleryPreviewScene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(5, 5, 5);
+  galleryPreviewScene.add(directionalLight);
+
+  // Drones
+  const droneMeshes = [];
+  const droneGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+  const numDrones = pattern.frames[0].drones.length;
+
+  for (let i = 0; i < numDrones; i++) {
+    const initialDrone = pattern.frames[0].drones[i];
+    const r = initialDrone.r !== undefined ? initialDrone.r : 127;
+    const g = initialDrone.g !== undefined ? initialDrone.g : 127;
+    const b = initialDrone.b !== undefined ? initialDrone.b : 255;
+
+    const material = new THREE.MeshPhongMaterial({
+      color: rgbToHex(r, g, b),
+      emissive: rgbToHex(
+        Math.floor(r * 0.7),
+        Math.floor(g * 0.7),
+        Math.floor(b * 0.7)
+      ),
+    });
+    const drone = new THREE.Mesh(droneGeometry, material);
+    drone.position.set(initialDrone.x, initialDrone.z, initialDrone.y);
+
+    galleryPreviewScene.add(drone);
+    droneMeshes.push(drone);
+  }
+
+  // Animation loop
+  let startTime = Date.now();
+
+  function animate() {
+    if (!galleryPreviewModalOpen) return;
+
+    galleryPreviewAnimationId = requestAnimationFrame(animate);
+
+    const elapsed = Date.now() - startTime;
+    const expectedFrameIndex = Math.floor(elapsed / FRAME_DURATION);
+    const currentFrameIndex = expectedFrameIndex % pattern.frames.length;
+
+    const currentFrame = pattern.frames[currentFrameIndex];
+    for (let i = 0; i < droneMeshes.length; i++) {
+      const drone = currentFrame.drones[i];
+      droneMeshes[i].position.set(drone.x, drone.z, drone.y);
+
+      if (drone.r !== undefined && drone.g !== undefined && drone.b !== undefined) {
+        droneMeshes[i].material.color.setHex(rgbToHex(drone.r, drone.g, drone.b));
+        droneMeshes[i].material.emissive.setHex(
+          rgbToHex(
+            Math.floor(drone.r * 0.7),
+            Math.floor(drone.g * 0.7),
+            Math.floor(drone.b * 0.7)
+          )
+        );
+      }
+    }
+
+    galleryPreviewRenderer.render(galleryPreviewScene, galleryPreviewCamera);
+  }
+  animate();
+
+  // Resize handler
+  galleryPreviewResizeHandler = () => {
+    if (!galleryPreviewModalOpen || !galleryPreviewCamera || !galleryPreviewRenderer) return;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    galleryPreviewCamera.aspect = width / height;
+    galleryPreviewCamera.updateProjectionMatrix();
+    galleryPreviewRenderer.setSize(width, height);
+  };
+  window.addEventListener("resize", galleryPreviewResizeHandler);
+}
+
+function loadGalleryCPPNGraph(cppnData) {
+  const svg = document.getElementById("gallery-cppn-svg");
+
+  // Clear previous content
+  svg.innerHTML = "";
+
+  // SVG dimensions
+  const width = 360;
+  const height = 430;
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  // Separate nodes by type
+  const inputNodes = cppnData.nodes.filter((n) => n.type === "input");
+  const outputNodes = cppnData.nodes.filter((n) => n.type === "output");
+  const hiddenNodes = cppnData.nodes.filter((n) => n.type === "hidden");
+
+  // Calculate layers (simple approach: input -> hidden -> output)
+  const layers = [inputNodes, hiddenNodes, outputNodes].filter(
+    (layer) => layer.length > 0
+  );
+  const layerSpacing = width / (layers.length + 1);
+
+  // Node positions
+  const nodePositions = new Map();
+
+  layers.forEach((layer, layerIndex) => {
+    const x = layerSpacing * (layerIndex + 1);
+    const nodeSpacing = height / (layer.length + 1);
+
+    layer.forEach((node, nodeIndex) => {
+      const y = nodeSpacing * (nodeIndex + 1);
+      nodePositions.set(node.id, { x, y, node });
+    });
+  });
+
+  // Draw connections first (so they appear behind nodes)
+  const connectionsGroup = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "g"
+  );
+  connectionsGroup.setAttribute("class", "connections");
+
+  cppnData.connections.forEach((conn) => {
+    if (!conn.enabled) return; // Skip disabled connections
+
+    const fromPos = nodePositions.get(conn.from);
+    const toPos = nodePositions.get(conn.to);
+
+    if (fromPos && toPos) {
+      const line = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line"
+      );
+      line.setAttribute("x1", fromPos.x);
+      line.setAttribute("y1", fromPos.y);
+      line.setAttribute("x2", toPos.x);
+      line.setAttribute("y2", toPos.y);
+
+      // Weight determines stroke width and opacity
+      const absWeight = Math.abs(conn.weight);
+      const strokeWidth = Math.max(0.5, Math.min(3, absWeight / 10));
+      const opacity = Math.max(0.3, Math.min(0.9, absWeight / 30));
+
+      // Positive weights = green, negative = red
+      const color = conn.weight > 0 ? "#4CAF50" : "#f44336";
+
+      line.setAttribute("stroke", color);
+      line.setAttribute("stroke-width", strokeWidth);
+      line.setAttribute("opacity", opacity);
+
+      // Tooltip
+      const title = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "title"
+      );
+      title.textContent = `Weight: ${conn.weight.toFixed(3)}`;
+      line.appendChild(title);
+
+      connectionsGroup.appendChild(line);
+    }
+  });
+  svg.appendChild(connectionsGroup);
+
+  // Draw nodes
+  const nodesGroup = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "g"
+  );
+  nodesGroup.setAttribute("class", "nodes");
+
+  nodePositions.forEach(({ x, y, node }) => {
+    // Node circle
+    const circle = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle"
+    );
+    circle.setAttribute("cx", x);
+    circle.setAttribute("cy", y);
+    circle.setAttribute("r", 8);
+
+    // Color by type
+    let fillColor;
+    if (node.type === "input") fillColor = "#2196F3";
+    else if (node.type === "output") fillColor = "#FF5722";
+    else fillColor = "#4CAF50";
+
+    circle.setAttribute("fill", fillColor);
+    circle.setAttribute("stroke", "white");
+    circle.setAttribute("stroke-width", "1.5");
+
+    // Tooltip
+    const title = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "title"
+    );
+    title.textContent = `${node.label}\nActivation: ${node.activation}\nBias: ${node.bias.toFixed(3)}`;
+    circle.appendChild(title);
+
+    nodesGroup.appendChild(circle);
+
+    // Node label
+    const text = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text"
+    );
+    text.setAttribute("x", x);
+    text.setAttribute("y", y + 20);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("fill", "white");
+    text.setAttribute("font-size", "10");
+    text.setAttribute("font-weight", "bold");
+    text.textContent = node.label;
+
+    nodesGroup.appendChild(text);
+  });
+  svg.appendChild(nodesGroup);
+
+  // Add legend
+  const legendGroup = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "g"
+  );
+  legendGroup.setAttribute("class", "legend");
+  legendGroup.setAttribute("transform", "translate(10, 10)");
+
+  const legendItems = [
+    { label: "Input", color: "#2196F3" },
+    { label: "Hidden", color: "#4CAF50" },
+    { label: "Output", color: "#FF5722" },
+  ];
+
+  legendItems.forEach((item, i) => {
+    const circle = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle"
+    );
+    circle.setAttribute("cx", 0);
+    circle.setAttribute("cy", i * 18);
+    circle.setAttribute("r", 5);
+    circle.setAttribute("fill", item.color);
+    legendGroup.appendChild(circle);
+
+    const text = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text"
+    );
+    text.setAttribute("x", 10);
+    text.setAttribute("y", i * 18 + 4);
+    text.setAttribute("fill", "white");
+    text.setAttribute("font-size", "11");
+    text.textContent = item.label;
+    legendGroup.appendChild(text);
+  });
+
+  svg.appendChild(legendGroup);
+}
+
+async function handleDeleteGalleryAnimation() {
+  if (!currentGalleryAnimationId) return;
+
+  if (!confirm(`アニメーション (ID: ${currentGalleryAnimationId}) を削除しますか？`)) {
+    return;
+  }
+
+  try {
+    await deleteGalleryAnimation(currentGalleryAnimationId);
+    alert("削除しました");
+    closeGalleryPreview();
+    loadGalleryGrid(); // Refresh the gallery grid
+  } catch (error) {
+    alert("削除エラー: " + error.message);
+    console.error("削除エラー:", error);
+  }
+}
+
 // メイン処理
 async function main() {
   const gridContainer = document.querySelector(".grid-container");
@@ -1076,12 +1596,41 @@ async function main() {
     if (e.target.id === "history-modal") closeHistoryModal();
   });
 
+  // Save animation button event listener
+  document
+    .getElementById("save-animation-btn")
+    .addEventListener("click", handleSaveAnimation);
+
+  // Gallery modal event listeners
+  document
+    .getElementById("gallery-btn")
+    .addEventListener("click", openGalleryModal);
+  document
+    .getElementById("gallery-modal-close")
+    .addEventListener("click", closeGalleryModal);
+  document.getElementById("gallery-modal").addEventListener("click", (e) => {
+    if (e.target.id === "gallery-modal") closeGalleryModal();
+  });
+
+  // Gallery preview modal event listeners
+  document
+    .getElementById("gallery-preview-close")
+    .addEventListener("click", closeGalleryPreview);
+  document.getElementById("gallery-preview-modal").addEventListener("click", (e) => {
+    if (e.target.id === "gallery-preview-modal") closeGalleryPreview();
+  });
+  document
+    .getElementById("gallery-delete-btn")
+    .addEventListener("click", handleDeleteGalleryAnimation);
+
   // キーボードショートカット
   document.addEventListener("keydown", (e) => {
     // Escapeキーでモーダルを閉じる
     if (e.key === "Escape") {
-      if (modalOpen) closeModal();
-      if (historyModalOpen) closeHistoryModal();
+      if (galleryPreviewModalOpen) closeGalleryPreview();
+      else if (galleryModalOpen) closeGalleryModal();
+      else if (modalOpen) closeModal();
+      else if (historyModalOpen) closeHistoryModal();
     }
 
     // キャプチャモード時のキーボードショートカット

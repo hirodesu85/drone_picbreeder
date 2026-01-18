@@ -25,6 +25,7 @@
             <div class="generation-info" id="generation-info">世代: -</div>
             <button id="evolve-btn" disabled>進化</button>
             <button id="history-btn">履歴</button>
+            <button id="gallery-btn">ギャラリー</button>
             <div class="loading" id="loading" style="display: none;">読み込み中...</div>
         </div>
         <p class="instruction">気に入ったアニメーションを1つ以上選択して「進化」ボタンを押してください</p>
@@ -39,6 +40,7 @@
             <div class="modal-header">
                 <h2 id="modal-title">Animation Detail</h2>
                 <div class="modal-header-controls">
+                    <button id="save-animation-btn" class="save-btn">保存</button>
                     <button id="capture-mode-btn" class="capture-btn">コマ送り</button>
                     <button id="modal-close" class="close-btn">&times;</button>
                 </div>
@@ -98,6 +100,40 @@
                             <!-- JavaScriptで動的に生成 -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Modal -->
+    <div id="gallery-modal" class="modal">
+        <div class="modal-content gallery-modal-content">
+            <div class="modal-header">
+                <h2>ギャラリー</h2>
+                <button id="gallery-modal-close" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body gallery-modal-body">
+                <div id="gallery-grid" class="gallery-grid">
+                    <!-- JavaScriptで動的に生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Preview Modal -->
+    <div id="gallery-preview-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="gallery-preview-title">保存済みアニメーション</h2>
+                <div class="modal-header-controls">
+                    <button id="gallery-delete-btn" class="delete-btn">削除</button>
+                    <button id="gallery-preview-close" class="close-btn">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="gallery-preview-scene-container" class="modal-scene"></div>
+                <div id="gallery-cppn-graph" class="cppn-graph">
+                    <svg id="gallery-cppn-svg"></svg>
                 </div>
             </div>
         </div>

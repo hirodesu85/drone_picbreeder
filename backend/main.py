@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api import routes
 from api import evolution
+from api import gallery
 
 app = FastAPI(
     title="Drone Picbreeder API",
@@ -21,3 +22,4 @@ app.add_middleware(
 # ルーターの登録
 app.include_router(routes.router)
 app.include_router(evolution.router)
+app.include_router(gallery.router)
