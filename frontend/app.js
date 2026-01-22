@@ -944,7 +944,7 @@ async function loadCPPNGraph(genomeId) {
 
         // Weight determines stroke width and opacity
         const absWeight = Math.abs(conn.weight);
-        const strokeWidth = Math.max(0.5, Math.min(3, absWeight / 10));
+        const strokeWidth = Math.max(2, Math.min(6, absWeight / 5));
         const opacity = Math.max(0.3, Math.min(0.9, absWeight / 30));
 
         // Positive weights = green, negative = red
@@ -1540,7 +1540,7 @@ function loadGalleryCPPNGraph(cppnData) {
 
       // Weight determines stroke width and opacity
       const absWeight = Math.abs(conn.weight);
-      const strokeWidth = Math.max(0.5, Math.min(3, absWeight / 10));
+      const strokeWidth = Math.max(2, Math.min(6, absWeight / 5));
       const opacity = Math.max(0.3, Math.min(0.9, absWeight / 30));
 
       // Positive weights = green, negative = red
