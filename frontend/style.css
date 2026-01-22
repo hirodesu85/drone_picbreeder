@@ -461,7 +461,9 @@ canvas {
 
 /* Hidden class for icons */
 #play-icon.hidden,
-#pause-icon.hidden {
+#pause-icon.hidden,
+#gallery-play-icon.hidden,
+#gallery-pause-icon.hidden {
     display: none;
 }
 

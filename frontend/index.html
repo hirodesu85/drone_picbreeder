@@ -126,6 +126,7 @@
             <div class="modal-header">
                 <h2 id="gallery-preview-title">保存済みアニメーション</h2>
                 <div class="modal-header-controls">
+                    <button id="gallery-capture-mode-btn" class="capture-btn">コマ送り</button>
                     <button id="gallery-delete-btn" class="delete-btn">削除</button>
                     <button id="gallery-preview-close" class="close-btn">&times;</button>
                 </div>
@@ -134,6 +135,29 @@
                 <div id="gallery-preview-scene-container" class="modal-scene"></div>
                 <div id="gallery-cppn-graph" class="cppn-graph">
                     <svg id="gallery-cppn-svg"></svg>
+                </div>
+                <!-- フレーム制御UI（コマ送りモード時のみ表示） -->
+                <div id="gallery-frame-controls" class="frame-controls hidden">
+                    <button id="gallery-frame-prev" class="frame-btn" title="前のフレーム">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <polygon points="15,4 15,16 5,10"/>
+                        </svg>
+                    </button>
+                    <button id="gallery-frame-play-pause" class="frame-btn play-pause-btn" title="再生/一時停止">
+                        <svg id="gallery-pause-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <rect x="5" y="4" width="4" height="12"/>
+                            <rect x="11" y="4" width="4" height="12"/>
+                        </svg>
+                        <svg id="gallery-play-icon" class="hidden" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <polygon points="5,4 5,16 16,10"/>
+                        </svg>
+                    </button>
+                    <button id="gallery-frame-next" class="frame-btn" title="次のフレーム">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <polygon points="5,4 5,16 15,10"/>
+                        </svg>
+                    </button>
+                    <span id="gallery-frame-counter" class="frame-counter">1 / 75</span>
                 </div>
             </div>
         </div>

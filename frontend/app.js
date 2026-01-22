@@ -35,6 +35,15 @@ let galleryPreviewAnimationId = null;
 let galleryPreviewResizeHandler = null;
 let currentGalleryAnimationId = null;
 
+// Gallery preview capture mode state
+let galleryPreviewControls = null;  // OrbitControls
+let galleryCaptureMode = false;
+let galleryIsPlaying = true;
+let galleryCurrentFrameIndex = 0;
+let galleryTotalFrames = 0;
+let galleryPatternData = null;
+let galleryDroneMeshes = [];
+
 // Current modal genome ID for saving
 let currentModalGenomeId = null;
 
@@ -670,6 +679,89 @@ function toggleCaptureMode() {
   }
 }
 
+// Gallery preview frame control functions
+function galleryRenderFrame(frameIndex) {
+  if (!galleryPatternData || !galleryDroneMeshes.length) return;
+
+  const frame = galleryPatternData.frames[frameIndex];
+  for (let i = 0; i < galleryDroneMeshes.length; i++) {
+    const drone = frame.drones[i];
+    galleryDroneMeshes[i].position.set(drone.x, drone.z, drone.y);
+
+    if (drone.r !== undefined && drone.g !== undefined && drone.b !== undefined) {
+      galleryDroneMeshes[i].material.color.setHex(rgbToHex(drone.r, drone.g, drone.b));
+      galleryDroneMeshes[i].material.emissive.setHex(
+        rgbToHex(
+          Math.floor(drone.r * 0.7),
+          Math.floor(drone.g * 0.7),
+          Math.floor(drone.b * 0.7),
+        ),
+      );
+    }
+  }
+}
+
+function updateGalleryFrameCounter() {
+  const counter = document.getElementById("gallery-frame-counter");
+  if (counter) {
+    counter.textContent = `${galleryCurrentFrameIndex + 1} / ${galleryTotalFrames}`;
+  }
+}
+
+function updateGalleryPlayPauseButton() {
+  const playIcon = document.getElementById("gallery-play-icon");
+  const pauseIcon = document.getElementById("gallery-pause-icon");
+
+  if (galleryIsPlaying) {
+    playIcon.classList.add("hidden");
+    pauseIcon.classList.remove("hidden");
+  } else {
+    playIcon.classList.remove("hidden");
+    pauseIcon.classList.add("hidden");
+  }
+}
+
+function toggleGalleryPlayPause() {
+  galleryIsPlaying = !galleryIsPlaying;
+  updateGalleryPlayPauseButton();
+}
+
+function galleryNextFrame() {
+  galleryIsPlaying = false;
+  galleryCurrentFrameIndex = (galleryCurrentFrameIndex + 1) % galleryTotalFrames;
+  updateGalleryFrameCounter();
+  updateGalleryPlayPauseButton();
+}
+
+function galleryPrevFrame() {
+  galleryIsPlaying = false;
+  galleryCurrentFrameIndex = (galleryCurrentFrameIndex - 1 + galleryTotalFrames) % galleryTotalFrames;
+  updateGalleryFrameCounter();
+  updateGalleryPlayPauseButton();
+}
+
+function toggleGalleryCaptureMode() {
+  galleryCaptureMode = !galleryCaptureMode;
+
+  const captureBtn = document.getElementById("gallery-capture-mode-btn");
+  const cppnGraph = document.getElementById("gallery-cppn-graph");
+  const frameControls = document.getElementById("gallery-frame-controls");
+
+  if (galleryCaptureMode) {
+    captureBtn.classList.add("active");
+    captureBtn.textContent = "コマ送り終了";
+    cppnGraph.classList.add("capture-hidden");
+    frameControls.classList.remove("hidden");
+  } else {
+    captureBtn.classList.remove("active");
+    captureBtn.textContent = "コマ送り";
+    cppnGraph.classList.remove("capture-hidden");
+    frameControls.classList.add("hidden");
+    galleryIsPlaying = true;
+    updateGalleryPlayPauseButton();
+  }
+}
+
 // モーダルシーンとアニメーション
 async function loadModalAnimation(genomeId) {
   const container = document.getElementById("modal-scene-container");
@@ -1215,6 +1307,11 @@ function closeGalleryPreview() {
   galleryPreviewModalOpen = false;
   currentGalleryAnimationId = null;
 
+  // キャプチャモードをリセット
+  if (galleryCaptureMode) {
+    toggleGalleryCaptureMode();
+  }
+
   cleanupGalleryPreviewScene();
 }
 
@@ -1222,6 +1319,11 @@ function cleanupGalleryPreviewScene() {
   if (galleryPreviewAnimationId) {
     cancelAnimationFrame(galleryPreviewAnimationId);
     galleryPreviewAnimationId = null;
+  }
+
+  if (galleryPreviewControls) {
+    galleryPreviewControls.dispose();
+    galleryPreviewControls = null;
   }
 
   if (galleryPreviewRenderer) {
@@ -1250,6 +1352,12 @@ function cleanupGalleryPreviewScene() {
 
   galleryPreviewCamera = null;
 
+  // キャプチャモード状態のリセット
+  galleryIsPlaying = true;
+  galleryCurrentFrameIndex = 0;
+  galleryPatternData = null;
+  galleryDroneMeshes = [];
+
   const container = document.getElementById("gallery-preview-scene-container");
   while (container.firstChild) {
     container.removeChild(container.firstChild);
@@ -1258,6 +1366,12 @@ function cleanupGalleryPreviewScene() {
 
 function loadGalleryPreviewAnimation(pattern) {
   const container = document.getElementById("gallery-preview-scene-container");
+
+  // パターンデータを保持
+  galleryPatternData = pattern;
+  galleryTotalFrames = pattern.frames.length;
+  galleryCurrentFrameIndex = 0;
+  galleryIsPlaying = true;
 
   // Scene
   galleryPreviewScene = new THREE.Scene();
@@ -1279,6 +1393,13 @@ function loadGalleryPreviewAnimation(pattern) {
   galleryPreviewRenderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(galleryPreviewRenderer.domElement);
 
+  // OrbitControls（カメラ操作）
+  galleryPreviewControls = new OrbitControls(galleryPreviewCamera, galleryPreviewRenderer.domElement);
+  galleryPreviewControls.enableDamping = true;
+  galleryPreviewControls.dampingFactor = 0.1;
+  galleryPreviewControls.minDistance = 5;
+  galleryPreviewControls.maxDistance = 50;
+
   // Lights
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
   galleryPreviewScene.add(ambientLight);
@@ -1287,7 +1408,7 @@ function loadGalleryPreviewAnimation(pattern) {
   galleryPreviewScene.add(directionalLight);
 
   // Drones
-  const droneMeshes = [];
+  galleryDroneMeshes = [];
   const droneGeometry = new THREE.SphereGeometry(0.1, 16, 16);
   const numDrones = pattern.frames[0].drones.length;
 
@@ -1309,36 +1430,38 @@ function loadGalleryPreviewAnimation(pattern) {
     drone.position.set(initialDrone.x, initialDrone.z, initialDrone.y);
 
     galleryPreviewScene.add(drone);
-    droneMeshes.push(drone);
+    galleryDroneMeshes.push(drone);
   }
 
+  // フレームカウンターを初期化
+  updateGalleryFrameCounter();
+  updateGalleryPlayPauseButton();
+
   // Animation loop
-  let startTime = Date.now();
+  let lastFrameTime = Date.now();
 
   function animate() {
     if (!galleryPreviewModalOpen) return;
 
     galleryPreviewAnimationId = requestAnimationFrame(animate);
 
-    const elapsed = Date.now() - startTime;
-    const expectedFrameIndex = Math.floor(elapsed / FRAME_DURATION);
-    const currentFrameIndex = expectedFrameIndex % pattern.frames.length;
+    const now = Date.now();
 
-    const currentFrame = pattern.frames[currentFrameIndex];
-    for (let i = 0; i < droneMeshes.length; i++) {
-      const drone = currentFrame.drones[i];
-      droneMeshes[i].position.set(drone.x, drone.z, drone.y);
-
-      if (drone.r !== undefined && drone.g !== undefined && drone.b !== undefined) {
-        droneMeshes[i].material.color.setHex(rgbToHex(drone.r, drone.g, drone.b));
-        droneMeshes[i].material.emissive.setHex(
-          rgbToHex(
-            Math.floor(drone.r * 0.7),
-            Math.floor(drone.g * 0.7),
-            Math.floor(drone.b * 0.7)
-          )
-        );
+    // 再生中の場合のみフレームを進める
+    if (galleryIsPlaying) {
+      if (now - lastFrameTime >= FRAME_DURATION) {
+        galleryCurrentFrameIndex = (galleryCurrentFrameIndex + 1) % galleryTotalFrames;
+        lastFrameTime = now;
+        updateGalleryFrameCounter();
       }
+    }
+
+    // 現在のフレームでドローンを描画
+    galleryRenderFrame(galleryCurrentFrameIndex);
+
+    // OrbitControlsの更新（ダンピング用）
+    if (galleryPreviewControls) {
+      galleryPreviewControls.update();
     }
 
     galleryPreviewRenderer.render(galleryPreviewScene, galleryPreviewCamera);
@@ -1623,6 +1746,20 @@ async function main() {
     .getElementById("gallery-delete-btn")
     .addEventListener("click", handleDeleteGalleryAnimation);
 
+  // Gallery preview capture mode and frame control event listeners
+  document
+    .getElementById("gallery-capture-mode-btn")
+    .addEventListener("click", toggleGalleryCaptureMode);
+  document
+    .getElementById("gallery-frame-prev")
+    .addEventListener("click", galleryPrevFrame);
+  document
+    .getElementById("gallery-frame-next")
+    .addEventListener("click", galleryNextFrame);
+  document
+    .getElementById("gallery-frame-play-pause")
+    .addEventListener("click", toggleGalleryPlayPause);
+
   // キーボードショートカット
   document.addEventListener("keydown", (e) => {
     // Escapeキーでモーダルを閉じる
@@ -1633,7 +1770,7 @@ async function main() {
       else if (historyModalOpen) closeHistoryModal();
     }
 
-    // キャプチャモード時のキーボードショートカット
+    // 詳細モーダルのキャプチャモード時のキーボードショートカット
     if (modalOpen && captureMode) {
       if (e.key === " ") {
         e.preventDefault();
@@ -1646,6 +1783,22 @@ async function main() {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         prevFrame();
+      }
+    }
+
+    // ギャラリープレビューのキャプチャモード時のキーボードショートカット
+    if (galleryPreviewModalOpen && galleryCaptureMode) {
+      if (e.key === " ") {
+        e.preventDefault();
+        toggleGalleryPlayPause();
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        galleryNextFrame();
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        galleryPrevFrame();
       }
     }
   });
